@@ -92,6 +92,17 @@ const AUTO_MAP: Record<string, string> = {
 
 const BOOL_FIELDS = new Set(["mql", "sql_flag", "ra_flag", "rr_flag"]);
 const NUM_FIELDS = new Set(["oportunidade", "arrecadado"]);
+const DATE_FIELDS = new Set(["data_criada", "data_ultimo_contato", "data_proximo_contato", "data_ra"]);
+
+function parseDate(raw: string): string | null {
+  if (!raw) return null;
+  // DD/MM/YYYY
+  const brMatch = raw.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  if (brMatch) return `${brMatch[3]}-${brMatch[2]}-${brMatch[1]}`;
+  // YYYY-MM-DD
+  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw;
+  return null;
+}
 
 function parseCSV(text: string): { headers: string[]; rows: string[][] } {
   const lines = text.split(/\r?\n/).filter(l => l.trim());
