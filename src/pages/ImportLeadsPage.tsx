@@ -72,10 +72,16 @@ reg("funil", "funil", "funil (short text)", "funnel", "pipeline");
 reg("produto", "produto", "produto (short text)", "product", "serviço", "servico", "plano", "plan");
 reg("loss_reason", "loss reason", "loss reason (short text)", "motivo de perda", "motivo perda", "lost reason", "razão de perda", "razao de perda");
 
+/** Extract parenthetical hint from header, e.g. "(date)", "(emoji)", "(short text)" */
+function getTypeHint(raw: string): string | null {
+  const match = raw.match(/\(([^)]+)\)\s*$/);
+  return match ? match[1].toLowerCase().trim() : null;
+}
+
 /** Normalize a CSV header for fuzzy matching: strip emoji, parenthetical type hints, accents */
 function normalizeHeader(raw: string): string {
   return raw
-    .replace(/[\u{1F000}-\u{1FFFF}\u{2600}-\u{27BF}\u{FE00}-\u{FE0F}\u{200D}\u{20E3}]/gu, "") // emoji
+    .replace(/[\u{1F000}-\u{1FFFF}\u{2600}-\u{27BF}\u{FE00}-\u{FE0F}\u{200D}\u{20E3}\u{E0020}-\u{E007F}\u{2702}-\u{27B0}\u{1FA00}-\u{1FA6F}\u{1FA70}-\u{1FAFF}\u{231A}-\u{23F3}\u{2328}\u{23CF}\u{23E9}-\u{23F3}\u{23F8}-\u{23FA}]/gu, "") // emoji
     .replace(/\(.*?\)/g, "") // (short text), (date), etc.
     .normalize("NFD").replace(/[\u0300-\u036f]/g, "") // accents
     .replace(/[^a-zA-Z0-9_\- ]/g, "") // special chars
@@ -89,6 +95,23 @@ function autoMapHeader(rawCol: string): string {
   if (AUTO_MAP[exact]) return AUTO_MAP[exact];
 
   const normalized = normalizeHeader(rawCol);
+  const hint = getTypeHint(rawCol);
+
+  // Use type hint to disambiguate (e.g. "RA (date)" vs "RA (emoji)")
+  if (normalized === "ra" || normalized === "ra") {
+    if (hint === "date") return "data_ra";
+    if (hint === "emoji") return "ra_flag";
+  }
+  if (normalized === "sql") {
+    if (hint === "emoji") return "sql_flag";
+  }
+  if (normalized === "rr") {
+    if (hint === "emoji") return "rr_flag";
+  }
+  if (normalized === "mql") {
+    if (hint === "emoji") return "mql";
+  }
+
   if (AUTO_MAP[normalized]) return AUTO_MAP[normalized];
 
   // Try matching against normalized versions of all keys
@@ -104,9 +127,9 @@ function autoMapHeader(rawCol: string): string {
     ["oportunidade", "oportunidade"], ["opportunity", "oportunidade"],
     ["arrecadado", "arrecadado"], ["justificativa", "justificativa"],
     ["objetivo", "objetivo"], ["utm_source", "utm_source"], ["utm_medium", "utm_medium"],
-    ["utm_content", "utm_content"], ["utm_campaign", "utm_campaign"],
+    ["utm_content", "utm_content"], ["utm_campaign", "utm_campaign"], ["utm-campaing", "utm_campaign"],
     ["utm_posicion", "utm_posicion"], ["proximo contato", "data_proximo_contato"],
-    ["ultimo contato", "data_ultimo_contato"], ["loss reason", "loss_reason"],
+    ["ultimo contato", "data_ultimo_contato"], ["loss", "loss_reason"],
     ["motivo de perda", "loss_reason"], ["funil", "funil"], ["produto", "produto"],
     ["date created", "data_criada"], ["data criada", "data_criada"],
   ];
@@ -142,6 +165,8 @@ const STATUS_NORMALIZE: Record<string, string> = {
   "contrato": "contrato",
   "nutrição": "nutricao",
   "nutricao": "nutricao",
+  "nutrição (follow infinito)": "nutricao",
+  "nutricao (follow infinito)": "nutricao",
   "desqualificado": "desqualificado",
   "proposta recusada": "proposta_recusada",
   "proposta_recusada": "proposta_recusada",
@@ -151,26 +176,51 @@ const STATUS_NORMALIZE: Record<string, string> = {
 
 function normalizeStatus(raw: string): string {
   const key = raw.toLowerCase().trim();
-  return STATUS_NORMALIZE[key] ?? "leads_entrada";
+  if (STATUS_NORMALIZE[key]) return STATUS_NORMALIZE[key];
+  // Fuzzy: check if any known key is contained in the raw value
+  for (const [pattern, value] of Object.entries(STATUS_NORMALIZE)) {
+    if (key.includes(pattern) || pattern.includes(key)) return value;
+  }
+  return "leads_entrada";
 }
 
 function parseDate(raw: string): string | null {
   if (!raw) return null;
+  const months: Record<string, string> = {
+    january:'01',february:'02',march:'03',april:'04',may:'05',june:'06',
+    july:'07',august:'08',september:'09',october:'10',november:'11',december:'12',
+    janeiro:'01',fevereiro:'02',marco:'03',abril:'04',maio:'05',junho:'06',
+    julho:'07',agosto:'08',setembro:'09',outubro:'10',novembro:'11',dezembro:'12',
+  };
+
+  // Strip ordinal suffixes (1st, 2nd, 3rd, 4th, etc.)
+  const cleaned = raw.replace(/(\d+)(st|nd|rd|th)/gi, '$1');
+
   // DD/MM/YYYY
-  const brMatch = raw.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  const brMatch = cleaned.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
   if (brMatch) return `${brMatch[3]}-${brMatch[2].padStart(2,'0')}-${brMatch[1].padStart(2,'0')}`;
+
   // YYYY-MM-DD (with optional time)
-  const isoMatch = raw.match(/^(\d{4}-\d{2}-\d{2})/);
+  const isoMatch = cleaned.match(/^(\d{4}-\d{2}-\d{2})/);
   if (isoMatch) return isoMatch[1];
-  // MM/DD/YYYY
-  const usMatch = raw.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
-  if (usMatch && Number(usMatch[1]) > 12) return `${usMatch[3]}-${usMatch[1].padStart(2,'0')}-${usMatch[2].padStart(2,'0')}`;
-  // "Month DD, YYYY" or "DD Month YYYY"
-  const months: Record<string, string> = { january:'01',february:'02',march:'03',april:'04',may:'05',june:'06',july:'07',august:'08',september:'09',october:'10',november:'11',december:'12',janeiro:'01',fevereiro:'02',março:'03',abril:'04',maio:'05',junho:'06',julho:'07',agosto:'08',setembro:'09',outubro:'10',novembro:'11',dezembro:'12' };
-  const enMatch = raw.match(/^([a-zA-Zçã]+)\s+(\d{1,2}),?\s+(\d{4})$/i);
+
+  // ClickUp format: "Weekday, Month DD YYYY, time" or "Weekday, Month DD YYYY"
+  const clickupMatch = cleaned.match(/(?:(?:monday|tuesday|wednesday|thursday|friday|saturday|sunday),?\s+)?([a-z]+)\s+(\d{1,2})\s+(\d{4})/i);
+  if (clickupMatch && months[clickupMatch[1].toLowerCase()]) {
+    return `${clickupMatch[3]}-${months[clickupMatch[1].toLowerCase()]}-${clickupMatch[2].padStart(2,'0')}`;
+  }
+
+  // "Month DD, YYYY"
+  const enMatch = cleaned.match(/^([a-zA-Z]+)\s+(\d{1,2}),?\s+(\d{4})/i);
   if (enMatch && months[enMatch[1].toLowerCase()]) return `${enMatch[3]}-${months[enMatch[1].toLowerCase()]}-${enMatch[2].padStart(2,'0')}`;
-  const ptMatch = raw.match(/^(\d{1,2})\s+de\s+([a-zA-Zçã]+)\s+de\s+(\d{4})$/i);
-  if (ptMatch && months[ptMatch[2].toLowerCase()]) return `${ptMatch[3]}-${months[ptMatch[2].toLowerCase()]}-${ptMatch[1].padStart(2,'0')}`;
+
+  // "DD de Month de YYYY"
+  const ptMatch = cleaned.match(/^(\d{1,2})\s+de\s+([a-zA-Z]+)\s+de\s+(\d{4})$/i);
+  if (ptMatch && months[ptMatch[2].toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")]) {
+    const m = ptMatch[2].toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    return `${ptMatch[3]}-${months[m]}-${ptMatch[1].padStart(2,'0')}`;
+  }
+
   // Fallback: try native Date
   const d = new Date(raw);
   if (!isNaN(d.getTime())) return d.toISOString().slice(0, 10);
