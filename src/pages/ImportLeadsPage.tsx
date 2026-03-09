@@ -94,12 +94,43 @@ const BOOL_FIELDS = new Set(["mql", "sql_flag", "ra_flag", "rr_flag"]);
 const NUM_FIELDS = new Set(["oportunidade", "arrecadado"]);
 const DATE_FIELDS = new Set(["data_criada", "data_ultimo_contato", "data_proximo_contato", "data_ra"]);
 
+const STATUS_NORMALIZE: Record<string, string> = {
+  "leads de entrada": "leads_entrada",
+  "leads entrada": "leads_entrada",
+  "qualificação": "qualificacao",
+  "qualificacao": "qualificacao",
+  "follow-up ra": "follow_ra",
+  "follow ra": "follow_ra",
+  "follow_ra": "follow_ra",
+  "reunião": "reuniao",
+  "reuniao": "reuniao",
+  "proposta/negociação": "proposta_negociacao",
+  "proposta negociação": "proposta_negociacao",
+  "proposta_negociacao": "proposta_negociacao",
+  "follow-up rr": "follow_rr",
+  "follow rr": "follow_rr",
+  "follow_rr": "follow_rr",
+  "follow futuro": "follow_futuro",
+  "follow_futuro": "follow_futuro",
+  "contrato": "contrato",
+  "nutrição": "nutricao",
+  "nutricao": "nutricao",
+  "desqualificado": "desqualificado",
+  "proposta recusada": "proposta_recusada",
+  "proposta_recusada": "proposta_recusada",
+  "contrato assinado": "contrato_assinado",
+  "contrato_assinado": "contrato_assinado",
+};
+
+function normalizeStatus(raw: string): string {
+  const key = raw.toLowerCase().trim();
+  return STATUS_NORMALIZE[key] ?? "leads_entrada";
+}
+
 function parseDate(raw: string): string | null {
   if (!raw) return null;
-  // DD/MM/YYYY
   const brMatch = raw.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
   if (brMatch) return `${brMatch[3]}-${brMatch[2]}-${brMatch[1]}`;
-  // YYYY-MM-DD
   if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw;
   return null;
 }
@@ -137,7 +168,9 @@ function buildRecord(row: string[], headers: string[], mapping: Record<number, s
     if (field === "__skip__") continue;
     const idx = Number(idxStr);
     const raw = row[idx]?.trim() ?? "";
-    if (BOOL_FIELDS.has(field)) {
+    if (field === "status") {
+      record[field] = normalizeStatus(raw);
+    } else if (BOOL_FIELDS.has(field)) {
       record[field] = raw === "1" || raw.toLowerCase() === "true";
     } else if (NUM_FIELDS.has(field)) {
       const cleaned = raw.replace(/[R$\s.]/g, "").replace(",", ".");
