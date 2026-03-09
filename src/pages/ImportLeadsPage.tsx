@@ -28,6 +28,7 @@ const LEAD_FIELDS = [
   { value: "data_ultimo_contato", label: "Último Contato" },
   { value: "data_proximo_contato", label: "Próximo Contato" },
   { value: "data_ra", label: "RA (data)" },
+  { value: "data_criada", label: "Data de Entrada" },
   { value: "mql", label: "MQL" },
   { value: "sql_flag", label: "SQL" },
   { value: "ra_flag", label: "RA (flag)" },
@@ -56,6 +57,8 @@ const AUTO_MAP: Record<string, string> = {
   "sql (emoji)": "sql_flag",
   "ra (emoji)": "ra_flag",
   "rr (emoji)": "rr_flag",
+  "date created": "data_criada",
+  "data de criação": "data_criada",
 };
 
 const BOOL_FIELDS = new Set(["mql", "sql_flag", "ra_flag", "rr_flag"]);

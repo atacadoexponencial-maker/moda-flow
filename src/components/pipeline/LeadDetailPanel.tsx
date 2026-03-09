@@ -170,6 +170,7 @@ export function LeadDetailPanel({ lead, open, onClose }: LeadDetailPanelProps) {
               <Field label="Último contato" value={formatDate(lead.data_ultimo_contato)} />
               <Field label="Próximo contato" value={formatDate(lead.data_proximo_contato)} />
               <Field label="Reunião agendada" value={formatDate(lead.data_ra)} />
+              <Field label="Data de Entrada" value={formatDate((lead as any).data_criada ?? lead.created_at?.slice(0, 10))} />
               <Field label="Produto" value={lead.produto} />
               <Field label="Funil" value={lead.funil} />
             </div>
@@ -261,6 +262,7 @@ export function LeadDetailPanel({ lead, open, onClose }: LeadDetailPanelProps) {
             <DatePickerField label="Último contato" value={form.data_ultimo_contato ?? null} onChange={v => set('data_ultimo_contato', v)} />
             <DatePickerField label="Próximo contato" value={form.data_proximo_contato ?? null} onChange={v => set('data_proximo_contato', v)} />
             <DatePickerField label="Reunião agendada" value={form.data_ra ?? null} onChange={v => set('data_ra', v)} />
+            <DatePickerField label="Data de Entrada" value={(form as any).data_criada ?? null} onChange={v => setForm(prev => ({ ...prev, data_criada: v } as any))} />
             <EditField label="Produto">
               <Input value={form.produto ?? ''} onChange={e => set('produto', e.target.value)} className="h-9" />
             </EditField>

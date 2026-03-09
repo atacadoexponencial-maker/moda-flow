@@ -53,6 +53,7 @@ export type Database = {
         Row: {
           arrecadado: number | null
           created_at: string
+          data_criada: string | null
           data_proximo_contato: string | null
           data_ra: string | null
           data_ultimo_contato: string | null
@@ -85,6 +86,7 @@ export type Database = {
         Insert: {
           arrecadado?: number | null
           created_at?: string
+          data_criada?: string | null
           data_proximo_contato?: string | null
           data_ra?: string | null
           data_ultimo_contato?: string | null
@@ -117,6 +119,7 @@ export type Database = {
         Update: {
           arrecadado?: number | null
           created_at?: string
+          data_criada?: string | null
           data_proximo_contato?: string | null
           data_ra?: string | null
           data_ultimo_contato?: string | null
