@@ -130,6 +130,7 @@ export function LeadDetailPanel({ lead, open, onClose }: LeadDetailPanelProps) {
     toast.success('Lead atualizado');
     setEditing(false);
     queryClient.invalidateQueries({ queryKey: ['leads-pipeline'] });
+    queryClient.invalidateQueries({ queryKey: ['leads-table'] });
   };
 
   const handleCancel = () => {
