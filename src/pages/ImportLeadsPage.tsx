@@ -72,10 +72,16 @@ reg("funil", "funil", "funil (short text)", "funnel", "pipeline");
 reg("produto", "produto", "produto (short text)", "product", "serviço", "servico", "plano", "plan");
 reg("loss_reason", "loss reason", "loss reason (short text)", "motivo de perda", "motivo perda", "lost reason", "razão de perda", "razao de perda");
 
+/** Extract parenthetical hint from header, e.g. "(date)", "(emoji)", "(short text)" */
+function getTypeHint(raw: string): string | null {
+  const match = raw.match(/\(([^)]+)\)\s*$/);
+  return match ? match[1].toLowerCase().trim() : null;
+}
+
 /** Normalize a CSV header for fuzzy matching: strip emoji, parenthetical type hints, accents */
 function normalizeHeader(raw: string): string {
   return raw
-    .replace(/[\u{1F000}-\u{1FFFF}\u{2600}-\u{27BF}\u{FE00}-\u{FE0F}\u{200D}\u{20E3}]/gu, "") // emoji
+    .replace(/[\u{1F000}-\u{1FFFF}\u{2600}-\u{27BF}\u{FE00}-\u{FE0F}\u{200D}\u{20E3}\u{E0020}-\u{E007F}\u{2702}-\u{27B0}\u{1FA00}-\u{1FA6F}\u{1FA70}-\u{1FAFF}\u{231A}-\u{23F3}\u{2328}\u{23CF}\u{23E9}-\u{23F3}\u{23F8}-\u{23FA}]/gu, "") // emoji
     .replace(/\(.*?\)/g, "") // (short text), (date), etc.
     .normalize("NFD").replace(/[\u0300-\u036f]/g, "") // accents
     .replace(/[^a-zA-Z0-9_\- ]/g, "") // special chars
@@ -89,6 +95,23 @@ function autoMapHeader(rawCol: string): string {
   if (AUTO_MAP[exact]) return AUTO_MAP[exact];
 
   const normalized = normalizeHeader(rawCol);
+  const hint = getTypeHint(rawCol);
+
+  // Use type hint to disambiguate (e.g. "RA (date)" vs "RA (emoji)")
+  if (normalized === "ra" || normalized === "ra") {
+    if (hint === "date") return "data_ra";
+    if (hint === "emoji") return "ra_flag";
+  }
+  if (normalized === "sql") {
+    if (hint === "emoji") return "sql_flag";
+  }
+  if (normalized === "rr") {
+    if (hint === "emoji") return "rr_flag";
+  }
+  if (normalized === "mql") {
+    if (hint === "emoji") return "mql";
+  }
+
   if (AUTO_MAP[normalized]) return AUTO_MAP[normalized];
 
   // Try matching against normalized versions of all keys
@@ -104,9 +127,9 @@ function autoMapHeader(rawCol: string): string {
     ["oportunidade", "oportunidade"], ["opportunity", "oportunidade"],
     ["arrecadado", "arrecadado"], ["justificativa", "justificativa"],
     ["objetivo", "objetivo"], ["utm_source", "utm_source"], ["utm_medium", "utm_medium"],
-    ["utm_content", "utm_content"], ["utm_campaign", "utm_campaign"],
+    ["utm_content", "utm_content"], ["utm_campaign", "utm_campaign"], ["utm-campaing", "utm_campaign"],
     ["utm_posicion", "utm_posicion"], ["proximo contato", "data_proximo_contato"],
-    ["ultimo contato", "data_ultimo_contato"], ["loss reason", "loss_reason"],
+    ["ultimo contato", "data_ultimo_contato"], ["loss", "loss_reason"],
     ["motivo de perda", "loss_reason"], ["funil", "funil"], ["produto", "produto"],
     ["date created", "data_criada"], ["data criada", "data_criada"],
   ];
