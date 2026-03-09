@@ -35,7 +35,7 @@ function formatCurrency(v: number | null) {
 
 function BoolIcon({ val }: { val: boolean | null }) {
   return val
-    ? <Check className="h-4 w-4 text-emerald-500" />
+    ? <Check className="h-4 w-4 text-accent-foreground" />
     : <XIcon className="h-3.5 w-3.5 text-muted-foreground/40" />;
 }
 
