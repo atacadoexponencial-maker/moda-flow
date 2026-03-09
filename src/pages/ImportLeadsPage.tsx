@@ -165,6 +165,8 @@ const STATUS_NORMALIZE: Record<string, string> = {
   "contrato": "contrato",
   "nutrição": "nutricao",
   "nutricao": "nutricao",
+  "nutrição (follow infinito)": "nutricao",
+  "nutricao (follow infinito)": "nutricao",
   "desqualificado": "desqualificado",
   "proposta recusada": "proposta_recusada",
   "proposta_recusada": "proposta_recusada",
@@ -174,7 +176,12 @@ const STATUS_NORMALIZE: Record<string, string> = {
 
 function normalizeStatus(raw: string): string {
   const key = raw.toLowerCase().trim();
-  return STATUS_NORMALIZE[key] ?? "leads_entrada";
+  if (STATUS_NORMALIZE[key]) return STATUS_NORMALIZE[key];
+  // Fuzzy: check if any known key is contained in the raw value
+  for (const [pattern, value] of Object.entries(STATUS_NORMALIZE)) {
+    if (key.includes(pattern) || pattern.includes(key)) return value;
+  }
+  return "leads_entrada";
 }
 
 function parseDate(raw: string): string | null {
