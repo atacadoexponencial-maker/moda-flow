@@ -138,6 +138,7 @@ export default function PipelinePage() {
   const [pendingMove, setPendingMove] = useState<{ lead: Lead; from: string; to: string } | null>(null);
   const [dialogType, setDialogType] = useState<MoveDialogType | null>(null);
   const [overColumn, setOverColumn] = useState<string | null>(null);
+  const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
 
   const { data: leads = [], isLoading } = useQuery({
     queryKey: ['leads-pipeline'],
