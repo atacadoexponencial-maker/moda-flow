@@ -129,9 +129,24 @@ function normalizeStatus(raw: string): string {
 
 function parseDate(raw: string): string | null {
   if (!raw) return null;
-  const brMatch = raw.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
-  if (brMatch) return `${brMatch[3]}-${brMatch[2]}-${brMatch[1]}`;
-  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw;
+  // DD/MM/YYYY
+  const brMatch = raw.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (brMatch) return `${brMatch[3]}-${brMatch[2].padStart(2,'0')}-${brMatch[1].padStart(2,'0')}`;
+  // YYYY-MM-DD (with optional time)
+  const isoMatch = raw.match(/^(\d{4}-\d{2}-\d{2})/);
+  if (isoMatch) return isoMatch[1];
+  // MM/DD/YYYY
+  const usMatch = raw.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (usMatch && Number(usMatch[1]) > 12) return `${usMatch[3]}-${usMatch[1].padStart(2,'0')}-${usMatch[2].padStart(2,'0')}`;
+  // "Month DD, YYYY" or "DD Month YYYY"
+  const months: Record<string, string> = { january:'01',february:'02',march:'03',april:'04',may:'05',june:'06',july:'07',august:'08',september:'09',october:'10',november:'11',december:'12',janeiro:'01',fevereiro:'02',março:'03',abril:'04',maio:'05',junho:'06',julho:'07',agosto:'08',setembro:'09',outubro:'10',novembro:'11',dezembro:'12' };
+  const enMatch = raw.match(/^([a-zA-Zçã]+)\s+(\d{1,2}),?\s+(\d{4})$/i);
+  if (enMatch && months[enMatch[1].toLowerCase()]) return `${enMatch[3]}-${months[enMatch[1].toLowerCase()]}-${enMatch[2].padStart(2,'0')}`;
+  const ptMatch = raw.match(/^(\d{1,2})\s+de\s+([a-zA-Zçã]+)\s+de\s+(\d{4})$/i);
+  if (ptMatch && months[ptMatch[2].toLowerCase()]) return `${ptMatch[3]}-${months[ptMatch[2].toLowerCase()]}-${ptMatch[1].padStart(2,'0')}`;
+  // Fallback: try native Date
+  const d = new Date(raw);
+  if (!isNaN(d.getTime())) return d.toISOString().slice(0, 10);
   return null;
 }
 
