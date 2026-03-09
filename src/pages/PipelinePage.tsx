@@ -244,6 +244,7 @@ export default function PipelinePage() {
                   stage={stage}
                   leads={grouped[stage.value]}
                   isOver={overColumn === stage.value}
+                  onCardClick={setSelectedLead}
                 />
               ))}
             </div>
