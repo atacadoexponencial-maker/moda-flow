@@ -249,8 +249,7 @@ export default function ImportLeadsPage() {
       setRows(r);
       const autoMap: Record<number, string> = {};
       h.forEach((col, i) => {
-        const key = col.toLowerCase().trim();
-        autoMap[i] = AUTO_MAP[key] ?? "__skip__";
+        autoMap[i] = autoMapHeader(col);
       });
       setMapping(autoMap);
     };
