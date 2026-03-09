@@ -143,6 +143,8 @@ function buildRecord(row: string[], headers: string[], mapping: Record<number, s
       const cleaned = raw.replace(/[R$\s.]/g, "").replace(",", ".");
       const num = parseFloat(cleaned);
       record[field] = isNaN(num) ? 0 : num;
+    } else if (DATE_FIELDS.has(field)) {
+      record[field] = parseDate(raw);
     } else {
       record[field] = raw || null;
     }
