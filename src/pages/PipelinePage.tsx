@@ -270,6 +270,8 @@ export default function PipelinePage() {
           onCancel={handleDialogCancel}
         />
       )}
+
+      <LeadDetailPanel lead={selectedLead} open={!!selectedLead} onClose={() => setSelectedLead(null)} />
     </div>
   );
 }
