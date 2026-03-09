@@ -72,6 +72,51 @@ reg("funil", "funil", "funil (short text)", "funnel", "pipeline");
 reg("produto", "produto", "produto (short text)", "product", "serviço", "servico", "plano", "plan");
 reg("loss_reason", "loss reason", "loss reason (short text)", "motivo de perda", "motivo perda", "lost reason", "razão de perda", "razao de perda");
 
+/** Normalize a CSV header for fuzzy matching: strip emoji, parenthetical type hints, accents */
+function normalizeHeader(raw: string): string {
+  return raw
+    .replace(/[\u{1F000}-\u{1FFFF}\u{2600}-\u{27BF}\u{FE00}-\u{FE0F}\u{200D}\u{20E3}]/gu, "") // emoji
+    .replace(/\(.*?\)/g, "") // (short text), (date), etc.
+    .normalize("NFD").replace(/[\u0300-\u036f]/g, "") // accents
+    .replace(/[^a-zA-Z0-9_\- ]/g, "") // special chars
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function autoMapHeader(rawCol: string): string {
+  const exact = rawCol.toLowerCase().trim();
+  if (AUTO_MAP[exact]) return AUTO_MAP[exact];
+
+  const normalized = normalizeHeader(rawCol);
+  if (AUTO_MAP[normalized]) return AUTO_MAP[normalized];
+
+  // Try matching against normalized versions of all keys
+  for (const [key, field] of Object.entries(AUTO_MAP)) {
+    if (normalizeHeader(key) === normalized) return field;
+  }
+
+  // Substring/contains matching for common fields
+  const contains: [string, string][] = [
+    ["nome", "nome"], ["name", "nome"], ["email", "email"], ["e-mail", "email"],
+    ["whatsapp", "whatsapp"], ["telefone", "whatsapp"], ["phone", "whatsapp"],
+    ["instagram", "instagram"], ["faturamento", "faturamento_mensal"],
+    ["oportunidade", "oportunidade"], ["opportunity", "oportunidade"],
+    ["arrecadado", "arrecadado"], ["justificativa", "justificativa"],
+    ["objetivo", "objetivo"], ["utm_source", "utm_source"], ["utm_medium", "utm_medium"],
+    ["utm_content", "utm_content"], ["utm_campaign", "utm_campaign"],
+    ["utm_posicion", "utm_posicion"], ["proximo contato", "data_proximo_contato"],
+    ["ultimo contato", "data_ultimo_contato"], ["loss reason", "loss_reason"],
+    ["motivo de perda", "loss_reason"], ["funil", "funil"], ["produto", "produto"],
+    ["date created", "data_criada"], ["data criada", "data_criada"],
+  ];
+  for (const [substr, field] of contains) {
+    if (normalized.includes(substr)) return field;
+  }
+
+  return "__skip__";
+}
+
 const BOOL_FIELDS = new Set(["mql", "sql_flag", "ra_flag", "rr_flag"]);
 const NUM_FIELDS = new Set(["oportunidade", "arrecadado"]);
 const DATE_FIELDS = new Set(["data_criada", "data_ultimo_contato", "data_proximo_contato", "data_ra"]);
@@ -204,8 +249,7 @@ export default function ImportLeadsPage() {
       setRows(r);
       const autoMap: Record<number, string> = {};
       h.forEach((col, i) => {
-        const key = col.toLowerCase().trim();
-        autoMap[i] = AUTO_MAP[key] ?? "__skip__";
+        autoMap[i] = autoMapHeader(col);
       });
       setMapping(autoMap);
     };
