@@ -69,7 +69,7 @@ function getDialogType(status: string): MoveDialogType | null {
 }
 
 // Draggable card
-function DraggableLeadCard({ lead }: { lead: Lead }) {
+function DraggableLeadCard({ lead, onClick }: { lead: Lead; onClick: (lead: Lead) => void }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: lead.id });
   const style = {
     transform: transform ? `translate3d(${transform.x}px, ${transform.y}px, 0)` : undefined,
@@ -77,7 +77,7 @@ function DraggableLeadCard({ lead }: { lead: Lead }) {
   };
 
   return (
-    <div ref={setNodeRef} style={style} {...listeners} {...attributes}>
+    <div ref={setNodeRef} style={style} {...listeners} {...attributes} onClick={() => onClick(lead)}>
       <LeadCardContent lead={lead} />
     </div>
   );
