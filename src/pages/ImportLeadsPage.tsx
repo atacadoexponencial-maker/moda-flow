@@ -226,6 +226,10 @@ function buildRecord(row: string[], headers: string[], mapping: Record<number, s
   }
   if (!record.nome) return null;
   if (!record.status) record.status = "leads_entrada";
+  // Sync created_at with data_criada so the DB timestamp reflects the original date
+  if (record.data_criada) {
+    record.created_at = `${record.data_criada}T00:00:00Z`;
+  }
   return record;
 }
 

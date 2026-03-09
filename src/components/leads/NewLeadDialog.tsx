@@ -32,6 +32,7 @@ export function NewLeadDialog() {
       return;
     }
     setSaving(true);
+    const today = new Date().toISOString().slice(0, 10);
     const { error } = await supabase.from('leads').insert({
       nome: form.nome.trim(),
       email: form.email || null,
@@ -40,6 +41,7 @@ export function NewLeadDialog() {
       status: form.status,
       faturamento_mensal: form.faturamento_mensal || null,
       oportunidade: form.oportunidade || 0,
+      data_criada: today,
     });
     setSaving(false);
     if (error) {
