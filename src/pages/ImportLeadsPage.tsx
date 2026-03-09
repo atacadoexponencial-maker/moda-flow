@@ -57,6 +57,8 @@ const AUTO_MAP: Record<string, string> = {
   "sql (emoji)": "sql_flag",
   "ra (emoji)": "ra_flag",
   "rr (emoji)": "rr_flag",
+  "date created": "data_criada",
+  "data de criação": "data_criada",
 };
 
 const BOOL_FIELDS = new Set(["mql", "sql_flag", "ra_flag", "rr_flag"]);
