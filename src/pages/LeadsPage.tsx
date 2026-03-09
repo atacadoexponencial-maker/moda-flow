@@ -4,7 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { ChevronUp, ChevronDown, ChevronsUpDown, Check, X as XIcon } from 'lucide-react';
+import { ChevronUp, ChevronDown, ChevronsUpDown, Check, X as XIcon, Download } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { getStageLabel } from '@/lib/constants';
@@ -162,6 +162,40 @@ export default function LeadsPage() {
     </TableHead>
   );
 
+  const exportCSV = () => {
+    const fmtDate = (d: string | null) => {
+      if (!d) return '';
+      try { return format(parseISO(d), 'dd/MM/yyyy'); } catch { return ''; }
+    };
+    const fmtMoney = (v: number | null) => v != null ? v.toFixed(2).replace('.', ',') : '0,00';
+    const bool = (v: boolean | null) => v ? 'Sim' : 'Não';
+    const esc = (v: string | null | undefined) => {
+      if (v == null) return '';
+      const s = String(v);
+      return s.includes(',') || s.includes(';') || s.includes('"') || s.includes('\n') ? `"${s.replace(/"/g, '""')}"` : s;
+    };
+
+    const headers = ['Nome','E-mail','WhatsApp','Instagram','Status','Funil','Produto','Faturamento Mensal','Oportunidade','Arrecadado','MQL','SQL','RA','RR','Data de Entrada','Último Contato','Próximo Contato','RA (data)','Justificativa','Objetivo','Motivo de Perda','utm_source','utm_medium','utm_content','utm_campaign','utm_posicion'];
+    const rows = sorted.map(l => [
+      esc(l.nome), esc(l.email), esc(l.whatsapp), esc(l.instagram),
+      esc(getStageLabel(l.status)), esc(l.funil), esc(l.produto), esc(l.faturamento_mensal),
+      fmtMoney(l.oportunidade), fmtMoney(l.arrecadado),
+      bool(l.mql), bool(l.sql_flag), bool(l.ra_flag), bool(l.rr_flag),
+      fmtDate(getEntrada(l)), fmtDate(l.data_ultimo_contato), fmtDate(l.data_proximo_contato), fmtDate(l.data_ra),
+      esc(l.justificativa), esc(l.objetivo), esc(l.loss_reason),
+      esc(l.utm_source), esc(l.utm_medium), esc(l.utm_content), esc(l.utm_campaign), esc(l.utm_posicion),
+    ].join(','));
+
+    const csv = '\uFEFF' + [headers.join(','), ...rows].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `leads_exportados_${format(new Date(), 'yyyy-MM-dd')}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -169,7 +203,13 @@ export default function LeadsPage() {
           <h2 className="text-2xl font-bold text-foreground">Leads</h2>
           <p className="text-sm text-muted-foreground">{filtered.length} leads encontrados</p>
         </div>
-        <NewLeadDialog />
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={exportCSV} disabled={sorted.length === 0}>
+            <Download className="h-4 w-4 mr-2" />
+            Exportar CSV
+          </Button>
+          <NewLeadDialog />
+        </div>
       </div>
 
       <LeadsFilters filters={filters} onChange={f => { setFilters(f); setPage(0); }} utmSources={utmSources} faturamentos={faturamentos} />
