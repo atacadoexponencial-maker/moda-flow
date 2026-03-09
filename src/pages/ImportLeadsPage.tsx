@@ -28,6 +28,7 @@ const LEAD_FIELDS = [
   { value: "data_ultimo_contato", label: "Último Contato" },
   { value: "data_proximo_contato", label: "Próximo Contato" },
   { value: "data_ra", label: "RA (data)" },
+  { value: "data_criada", label: "Data de Entrada" },
   { value: "mql", label: "MQL" },
   { value: "sql_flag", label: "SQL" },
   { value: "ra_flag", label: "RA (flag)" },
