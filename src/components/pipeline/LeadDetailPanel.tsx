@@ -170,6 +170,7 @@ export function LeadDetailPanel({ lead, open, onClose }: LeadDetailPanelProps) {
               <Field label="Último contato" value={formatDate(lead.data_ultimo_contato)} />
               <Field label="Próximo contato" value={formatDate(lead.data_proximo_contato)} />
               <Field label="Reunião agendada" value={formatDate(lead.data_ra)} />
+              <Field label="Data de Entrada" value={formatDate((lead as any).data_criada ?? lead.created_at?.slice(0, 10))} />
               <Field label="Produto" value={lead.produto} />
               <Field label="Funil" value={lead.funil} />
             </div>
