@@ -198,6 +198,8 @@ export function LeadDetailPanel({ lead, open, onClose }: LeadDetailPanelProps) {
               <Field label="utm_campaign" value={lead.utm_campaign} />
               <Field label="utm_content" value={lead.utm_content} />
             </div>
+            <Separator />
+            <LeadActivities leadId={lead.id} />
           </div>
         </SheetContent>
       </Sheet>
