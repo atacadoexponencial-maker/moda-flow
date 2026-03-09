@@ -21,6 +21,7 @@ import {
 import { useDraggable, useDroppable } from '@dnd-kit/core';
 import { CSS } from '@dnd-kit/utilities';
 import { MoveDialog, type MoveDialogType } from '@/components/pipeline/MoveDialog';
+import { LeadDetailPanel } from '@/components/pipeline/LeadDetailPanel';
 
 type Lead = Tables<'leads'>;
 
