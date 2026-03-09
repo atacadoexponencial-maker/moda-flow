@@ -16,6 +16,8 @@ import { FUNNEL_STAGES, getStageLabel } from '@/lib/constants';
 import { supabase } from '@/integrations/supabase/client';
 import { useQueryClient } from '@tanstack/react-query';
 import { cn } from '@/lib/utils';
+import { LeadActivities } from '@/components/pipeline/LeadActivities';
+import { cn } from '@/lib/utils';
 import type { Tables } from '@/integrations/supabase/types';
 
 type Lead = Tables<'leads'>;
