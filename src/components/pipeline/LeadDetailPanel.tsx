@@ -325,6 +325,8 @@ export function LeadDetailPanel({ lead, open, onClose }: LeadDetailPanelProps) {
               <Input value={form.utm_content ?? ''} onChange={e => set('utm_content', e.target.value)} className="h-9" />
             </EditField>
           </div>
+          <Separator />
+          <LeadActivities leadId={lead.id} />
         </div>
       </SheetContent>
     </Sheet>
