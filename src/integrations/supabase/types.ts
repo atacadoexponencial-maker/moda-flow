@@ -14,7 +14,140 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      activities: {
+        Row: {
+          content: string | null
+          created_at: string
+          created_by: string | null
+          id: string
+          lead_id: string
+          type: string | null
+        }
+        Insert: {
+          content?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          lead_id: string
+          type?: string | null
+        }
+        Update: {
+          content?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          lead_id?: string
+          type?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "activities_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      leads: {
+        Row: {
+          arrecadado: number | null
+          created_at: string
+          data_proximo_contato: string | null
+          data_ra: string | null
+          data_ultimo_contato: string | null
+          email: string | null
+          faturamento_mensal: string | null
+          funil: string | null
+          id: string
+          instagram: string | null
+          justificativa: string | null
+          loss_reason: string | null
+          meta_ad_id: string | null
+          meta_campaign_id: string | null
+          meta_lead_id: string | null
+          mql: boolean | null
+          nome: string
+          objetivo: string | null
+          oportunidade: number | null
+          produto: string | null
+          ra_flag: boolean | null
+          rr_flag: boolean | null
+          sql_flag: boolean | null
+          status: string
+          utm_campaign: string | null
+          utm_content: string | null
+          utm_medium: string | null
+          utm_posicion: string | null
+          utm_source: string | null
+          whatsapp: string | null
+        }
+        Insert: {
+          arrecadado?: number | null
+          created_at?: string
+          data_proximo_contato?: string | null
+          data_ra?: string | null
+          data_ultimo_contato?: string | null
+          email?: string | null
+          faturamento_mensal?: string | null
+          funil?: string | null
+          id?: string
+          instagram?: string | null
+          justificativa?: string | null
+          loss_reason?: string | null
+          meta_ad_id?: string | null
+          meta_campaign_id?: string | null
+          meta_lead_id?: string | null
+          mql?: boolean | null
+          nome: string
+          objetivo?: string | null
+          oportunidade?: number | null
+          produto?: string | null
+          ra_flag?: boolean | null
+          rr_flag?: boolean | null
+          sql_flag?: boolean | null
+          status?: string
+          utm_campaign?: string | null
+          utm_content?: string | null
+          utm_medium?: string | null
+          utm_posicion?: string | null
+          utm_source?: string | null
+          whatsapp?: string | null
+        }
+        Update: {
+          arrecadado?: number | null
+          created_at?: string
+          data_proximo_contato?: string | null
+          data_ra?: string | null
+          data_ultimo_contato?: string | null
+          email?: string | null
+          faturamento_mensal?: string | null
+          funil?: string | null
+          id?: string
+          instagram?: string | null
+          justificativa?: string | null
+          loss_reason?: string | null
+          meta_ad_id?: string | null
+          meta_campaign_id?: string | null
+          meta_lead_id?: string | null
+          mql?: boolean | null
+          nome?: string
+          objetivo?: string | null
+          oportunidade?: number | null
+          produto?: string | null
+          ra_flag?: boolean | null
+          rr_flag?: boolean | null
+          sql_flag?: boolean | null
+          status?: string
+          utm_campaign?: string | null
+          utm_content?: string | null
+          utm_medium?: string | null
+          utm_posicion?: string | null
+          utm_source?: string | null
+          whatsapp?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
