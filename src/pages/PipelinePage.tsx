@@ -104,7 +104,7 @@ function LeadCardContent({ lead }: { lead: Lead }) {
 }
 
 // Droppable column
-function DroppableColumn({ stage, leads, isOver }: { stage: typeof COLUMN_ORDER[number]; leads: Lead[]; isOver: boolean }) {
+function DroppableColumn({ stage, leads, isOver, onCardClick }: { stage: typeof COLUMN_ORDER[number]; leads: Lead[]; isOver: boolean; onCardClick: (lead: Lead) => void }) {
   const { setNodeRef } = useDroppable({ id: stage.value });
   const total = leads.length;
   const somaOp = leads.reduce((s, l) => s + (Number(l.oportunidade) || 0), 0);
@@ -119,7 +119,7 @@ function DroppableColumn({ stage, leads, isOver }: { stage: typeof COLUMN_ORDER[
         'flex-1 rounded-b-lg p-2 space-y-2 overflow-y-auto max-h-[calc(100vh-13rem)] transition-colors',
         isOver ? 'bg-accent/20 ring-2 ring-accent' : 'bg-muted/40'
       )}>
-        {leads.map(lead => <DraggableLeadCard key={lead.id} lead={lead} />)}
+        {leads.map(lead => <DraggableLeadCard key={lead.id} lead={lead} onClick={onCardClick} />)}
         {total === 0 && <p className="text-xs text-muted-foreground text-center py-4">Nenhum lead</p>}
       </div>
     </div>
