@@ -21,6 +21,7 @@ import {
 import { useDraggable, useDroppable } from '@dnd-kit/core';
 import { CSS } from '@dnd-kit/utilities';
 import { MoveDialog, type MoveDialogType } from '@/components/pipeline/MoveDialog';
+import { LeadDetailPanel } from '@/components/pipeline/LeadDetailPanel';
 
 type Lead = Tables<'leads'>;
 
@@ -68,7 +69,7 @@ function getDialogType(status: string): MoveDialogType | null {
 }
 
 // Draggable card
-function DraggableLeadCard({ lead }: { lead: Lead }) {
+function DraggableLeadCard({ lead, onClick }: { lead: Lead; onClick: (lead: Lead) => void }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: lead.id });
   const style = {
     transform: transform ? `translate3d(${transform.x}px, ${transform.y}px, 0)` : undefined,
@@ -76,7 +77,7 @@ function DraggableLeadCard({ lead }: { lead: Lead }) {
   };
 
   return (
-    <div ref={setNodeRef} style={style} {...listeners} {...attributes}>
+    <div ref={setNodeRef} style={style} {...listeners} {...attributes} onClick={() => onClick(lead)}>
       <LeadCardContent lead={lead} />
     </div>
   );
@@ -103,7 +104,7 @@ function LeadCardContent({ lead }: { lead: Lead }) {
 }
 
 // Droppable column
-function DroppableColumn({ stage, leads, isOver }: { stage: typeof COLUMN_ORDER[number]; leads: Lead[]; isOver: boolean }) {
+function DroppableColumn({ stage, leads, isOver, onCardClick }: { stage: typeof COLUMN_ORDER[number]; leads: Lead[]; isOver: boolean; onCardClick: (lead: Lead) => void }) {
   const { setNodeRef } = useDroppable({ id: stage.value });
   const total = leads.length;
   const somaOp = leads.reduce((s, l) => s + (Number(l.oportunidade) || 0), 0);
@@ -118,7 +119,7 @@ function DroppableColumn({ stage, leads, isOver }: { stage: typeof COLUMN_ORDER[
         'flex-1 rounded-b-lg p-2 space-y-2 overflow-y-auto max-h-[calc(100vh-13rem)] transition-colors',
         isOver ? 'bg-accent/20 ring-2 ring-accent' : 'bg-muted/40'
       )}>
-        {leads.map(lead => <DraggableLeadCard key={lead.id} lead={lead} />)}
+        {leads.map(lead => <DraggableLeadCard key={lead.id} lead={lead} onClick={onCardClick} />)}
         {total === 0 && <p className="text-xs text-muted-foreground text-center py-4">Nenhum lead</p>}
       </div>
     </div>
@@ -137,6 +138,7 @@ export default function PipelinePage() {
   const [pendingMove, setPendingMove] = useState<{ lead: Lead; from: string; to: string } | null>(null);
   const [dialogType, setDialogType] = useState<MoveDialogType | null>(null);
   const [overColumn, setOverColumn] = useState<string | null>(null);
+  const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
 
   const { data: leads = [], isLoading } = useQuery({
     queryKey: ['leads-pipeline'],
@@ -242,6 +244,7 @@ export default function PipelinePage() {
                   stage={stage}
                   leads={grouped[stage.value]}
                   isOver={overColumn === stage.value}
+                  onCardClick={setSelectedLead}
                 />
               ))}
             </div>
@@ -267,6 +270,8 @@ export default function PipelinePage() {
           onCancel={handleDialogCancel}
         />
       )}
+
+      <LeadDetailPanel lead={selectedLead} open={!!selectedLead} onClose={() => setSelectedLead(null)} />
     </div>
   );
 }
