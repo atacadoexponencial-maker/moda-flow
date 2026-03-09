@@ -10,46 +10,67 @@ import { toast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
 
 const LEAD_FIELDS = [
-  { value: "__skip__", label: "— Ignorar —" },
-  { value: "nome", label: "Nome" },
-  { value: "email", label: "E-mail" },
-  { value: "whatsapp", label: "WhatsApp" },
-  { value: "instagram", label: "Instagram" },
-  { value: "status", label: "Status" },
-  { value: "faturamento_mensal", label: "Faturamento Mensal" },
-  { value: "oportunidade", label: "Oportunidade" },
+  { value: "__skip__", label: "— Ignorar coluna —" },
   { value: "arrecadado", label: "Arrecadado" },
-  { value: "justificativa", label: "Justificativa" },
-  { value: "objetivo", label: "Objetivo" },
-  { value: "utm_source", label: "utm_source" },
-  { value: "utm_medium", label: "utm_medium" },
-  { value: "utm_content", label: "utm_content" },
-  { value: "utm_campaign", label: "utm_campaign" },
-  { value: "data_ultimo_contato", label: "Último Contato" },
+  { value: "data_criada", label: "Data de Entrada" },
   { value: "data_proximo_contato", label: "Próximo Contato" },
   { value: "data_ra", label: "RA (data)" },
-  { value: "data_criada", label: "Data de Entrada" },
+  { value: "data_ultimo_contato", label: "Último Contato" },
+  { value: "email", label: "E-mail" },
+  { value: "faturamento_mensal", label: "Faturamento Mensal" },
+  { value: "funil", label: "Funil" },
+  { value: "instagram", label: "Instagram" },
+  { value: "justificativa", label: "Justificativa" },
+  { value: "loss_reason", label: "Motivo de Perda" },
   { value: "mql", label: "MQL" },
-  { value: "sql_flag", label: "SQL" },
+  { value: "nome", label: "Nome" },
+  { value: "objetivo", label: "Objetivo" },
+  { value: "oportunidade", label: "Oportunidade" },
+  { value: "produto", label: "Produto" },
   { value: "ra_flag", label: "RA (flag)" },
   { value: "rr_flag", label: "RR (flag)" },
+  { value: "sql_flag", label: "SQL" },
+  { value: "status", label: "Status" },
+  { value: "utm_campaign", label: "utm_campaign" },
+  { value: "utm_content", label: "utm_content" },
+  { value: "utm_medium", label: "utm_medium" },
+  { value: "utm_posicion", label: "utm_posicion" },
+  { value: "utm_source", label: "utm_source" },
+  { value: "whatsapp", label: "WhatsApp" },
 ] as const;
 
 const AUTO_MAP: Record<string, string> = {
   "nome (short text)": "nome",
+  "nome": "nome",
   "e-mail (short text)": "email",
+  "e-mail": "email",
+  "email": "email",
   "whatsapp (phone)": "whatsapp",
+  "whatsapp": "whatsapp",
   "instagram (short text)": "instagram",
+  "instagram": "instagram",
   "status": "status",
   "faturamento mensal (short text)": "faturamento_mensal",
+  "faturamento mensal": "faturamento_mensal",
   "oportunidade (currency)": "oportunidade",
+  "oportunidade": "oportunidade",
   "arrecadado (currency)": "arrecadado",
+  "arrecadado": "arrecadado",
   "justificativa (short text)": "justificativa",
+  "justificativa": "justificativa",
   "objetivo 2025 (short text)": "objetivo",
+  "objetivo": "objetivo",
   "utm_source (short text)": "utm_source",
+  "utm_source": "utm_source",
   "utm_medium (short text)": "utm_medium",
+  "utm_medium": "utm_medium",
   "utm_content (short text)": "utm_content",
+  "utm_content": "utm_content",
   "utm-campaing (short text)": "utm_campaign",
+  "utm_campaign (short text)": "utm_campaign",
+  "utm_campaign": "utm_campaign",
+  "utm_posicion (short text)": "utm_posicion",
+  "utm_posicion": "utm_posicion",
   "último contato (date)": "data_ultimo_contato",
   "próximo contato (date)": "data_proximo_contato",
   "ra (date)": "data_ra",
@@ -59,10 +80,29 @@ const AUTO_MAP: Record<string, string> = {
   "rr (emoji)": "rr_flag",
   "date created": "data_criada",
   "data de criação": "data_criada",
+  "data criada": "data_criada",
+  "funil (short text)": "funil",
+  "funil": "funil",
+  "produto (short text)": "produto",
+  "produto": "produto",
+  "loss reason (short text)": "loss_reason",
+  "loss reason": "loss_reason",
+  "motivo de perda": "loss_reason",
 };
 
 const BOOL_FIELDS = new Set(["mql", "sql_flag", "ra_flag", "rr_flag"]);
 const NUM_FIELDS = new Set(["oportunidade", "arrecadado"]);
+const DATE_FIELDS = new Set(["data_criada", "data_ultimo_contato", "data_proximo_contato", "data_ra"]);
+
+function parseDate(raw: string): string | null {
+  if (!raw) return null;
+  // DD/MM/YYYY
+  const brMatch = raw.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  if (brMatch) return `${brMatch[3]}-${brMatch[2]}-${brMatch[1]}`;
+  // YYYY-MM-DD
+  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw;
+  return null;
+}
 
 function parseCSV(text: string): { headers: string[]; rows: string[][] } {
   const lines = text.split(/\r?\n/).filter(l => l.trim());
@@ -103,6 +143,8 @@ function buildRecord(row: string[], headers: string[], mapping: Record<number, s
       const cleaned = raw.replace(/[R$\s.]/g, "").replace(",", ".");
       const num = parseFloat(cleaned);
       record[field] = isNaN(num) ? 0 : num;
+    } else if (DATE_FIELDS.has(field)) {
+      record[field] = parseDate(raw);
     } else {
       record[field] = raw || null;
     }
