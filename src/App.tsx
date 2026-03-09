@@ -11,6 +11,7 @@ import LeadsPage from "@/pages/LeadsPage";
 import HojePage from "@/pages/HojePage";
 import DashboardPage from "@/pages/DashboardPage";
 import ConfiguracoesPage from "@/pages/ConfiguracoesPage";
+import ImportLeadsPage from "@/pages/ImportLeadsPage";
 import NotFound from "@/pages/NotFound";
 
 const queryClient = new QueryClient();
