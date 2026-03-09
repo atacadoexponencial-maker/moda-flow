@@ -39,56 +39,38 @@ const LEAD_FIELDS = [
   { value: "whatsapp", label: "WhatsApp" },
 ] as const;
 
-const AUTO_MAP: Record<string, string> = {
-  "nome (short text)": "nome",
-  "nome": "nome",
-  "e-mail (short text)": "email",
-  "e-mail": "email",
-  "email": "email",
-  "whatsapp (phone)": "whatsapp",
-  "whatsapp": "whatsapp",
-  "instagram (short text)": "instagram",
-  "instagram": "instagram",
-  "status": "status",
-  "faturamento mensal (short text)": "faturamento_mensal",
-  "faturamento mensal": "faturamento_mensal",
-  "oportunidade (currency)": "oportunidade",
-  "oportunidade": "oportunidade",
-  "arrecadado (currency)": "arrecadado",
-  "arrecadado": "arrecadado",
-  "justificativa (short text)": "justificativa",
-  "justificativa": "justificativa",
-  "objetivo 2025 (short text)": "objetivo",
-  "objetivo": "objetivo",
-  "utm_source (short text)": "utm_source",
-  "utm_source": "utm_source",
-  "utm_medium (short text)": "utm_medium",
-  "utm_medium": "utm_medium",
-  "utm_content (short text)": "utm_content",
-  "utm_content": "utm_content",
-  "utm-campaing (short text)": "utm_campaign",
-  "utm_campaign (short text)": "utm_campaign",
-  "utm_campaign": "utm_campaign",
-  "utm_posicion (short text)": "utm_posicion",
-  "utm_posicion": "utm_posicion",
-  "último contato (date)": "data_ultimo_contato",
-  "próximo contato (date)": "data_proximo_contato",
-  "ra (date)": "data_ra",
-  "mql (emoji)": "mql",
-  "sql (emoji)": "sql_flag",
-  "ra (emoji)": "ra_flag",
-  "rr (emoji)": "rr_flag",
-  "date created": "data_criada",
-  "data de criação": "data_criada",
-  "data criada": "data_criada",
-  "funil (short text)": "funil",
-  "funil": "funil",
-  "produto (short text)": "produto",
-  "produto": "produto",
-  "loss reason (short text)": "loss_reason",
-  "loss reason": "loss_reason",
-  "motivo de perda": "loss_reason",
-};
+const AUTO_MAP: Record<string, string> = {};
+
+function reg(field: string, ...keys: string[]) {
+  keys.forEach(k => { AUTO_MAP[k] = field; });
+}
+
+reg("nome", "nome", "name", "nome (short text)", "nome do lead", "lead name", "nome completo", "full name", "razão social", "razao social", "empresa", "company");
+reg("email", "email", "e-mail", "e-mail (short text)", "email (short text)", "email do lead", "lead email", "correio", "mail");
+reg("whatsapp", "whatsapp", "whatsapp (phone)", "whatsapp (short text)", "telefone", "phone", "celular", "tel", "fone", "número", "numero", "mobile");
+reg("instagram", "instagram", "instagram (short text)", "ig", "@instagram", "perfil instagram");
+reg("status", "status", "status (short text)", "etapa", "stage", "fase", "pipeline stage", "coluna");
+reg("faturamento_mensal", "faturamento mensal", "faturamento mensal (short text)", "faturamento", "revenue", "monthly revenue", "receita", "receita mensal", "mrr");
+reg("oportunidade", "oportunidade", "oportunidade (currency)", "oportunidade (short text)", "valor", "deal value", "valor do negócio", "valor do negocio", "deal", "opportunity", "valor oportunidade");
+reg("arrecadado", "arrecadado", "arrecadado (currency)", "arrecadado (short text)", "valor arrecadado", "receita fechada", "won value", "closed value", "ganho");
+reg("justificativa", "justificativa", "justificativa (short text)", "motivo", "reason", "notes", "observação", "observacao", "obs", "nota", "comentário", "comentario");
+reg("objetivo", "objetivo", "objetivo (short text)", "objetivo 2025", "objetivo 2025 (short text)", "meta", "goal", "target");
+reg("utm_source", "utm_source", "utm_source (short text)", "source", "fonte", "origem", "canal");
+reg("utm_medium", "utm_medium", "utm_medium (short text)", "medium", "mídia", "midia");
+reg("utm_content", "utm_content", "utm_content (short text)", "content", "conteúdo", "conteudo");
+reg("utm_campaign", "utm_campaign", "utm_campaign (short text)", "utm-campaing (short text)", "utm-campaign", "campaign", "campanha");
+reg("utm_posicion", "utm_posicion", "utm_posicion (short text)", "posição", "posicao", "position", "ad position");
+reg("data_ultimo_contato", "último contato", "último contato (date)", "ultimo contato", "data último contato", "data ultimo contato", "last contact", "last contacted");
+reg("data_proximo_contato", "próximo contato", "próximo contato (date)", "proximo contato", "data próximo contato", "data proximo contato", "next contact", "follow-up", "follow up", "followup");
+reg("data_ra", "ra (date)", "data ra", "data da reunião", "data da reuniao", "data reunião", "data reuniao", "meeting date");
+reg("data_criada", "date created", "data de criação", "data criada", "data de entrada", "data entrada", "criado em", "created at", "created_at", "created", "entrada", "data cadastro", "dt criação", "dt criacao");
+reg("mql", "mql", "mql (emoji)", "mql (short text)", "marketing qualified");
+reg("sql_flag", "sql", "sql (emoji)", "sql (short text)", "sales qualified");
+reg("ra_flag", "ra", "ra (emoji)", "ra (short text)", "reunião agendada", "reuniao agendada");
+reg("rr_flag", "rr", "rr (emoji)", "rr (short text)", "reunião realizada", "reuniao realizada");
+reg("funil", "funil", "funil (short text)", "funnel", "pipeline");
+reg("produto", "produto", "produto (short text)", "product", "serviço", "servico", "plano", "plan");
+reg("loss_reason", "loss reason", "loss reason (short text)", "motivo de perda", "motivo perda", "lost reason", "razão de perda", "razao de perda");
 
 const BOOL_FIELDS = new Set(["mql", "sql_flag", "ra_flag", "rr_flag"]);
 const NUM_FIELDS = new Set(["oportunidade", "arrecadado"]);
