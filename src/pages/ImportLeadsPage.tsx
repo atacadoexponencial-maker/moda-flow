@@ -168,7 +168,9 @@ function buildRecord(row: string[], headers: string[], mapping: Record<number, s
     if (field === "__skip__") continue;
     const idx = Number(idxStr);
     const raw = row[idx]?.trim() ?? "";
-    if (BOOL_FIELDS.has(field)) {
+    if (field === "status") {
+      record[field] = normalizeStatus(raw);
+    } else if (BOOL_FIELDS.has(field)) {
       record[field] = raw === "1" || raw.toLowerCase() === "true";
     } else if (NUM_FIELDS.has(field)) {
       const cleaned = raw.replace(/[R$\s.]/g, "").replace(",", ".");
