@@ -16,6 +16,7 @@ import { FUNNEL_STAGES, getStageLabel } from '@/lib/constants';
 import { supabase } from '@/integrations/supabase/client';
 import { useQueryClient } from '@tanstack/react-query';
 import { cn } from '@/lib/utils';
+import { LeadActivities } from '@/components/pipeline/LeadActivities';
 import type { Tables } from '@/integrations/supabase/types';
 
 type Lead = Tables<'leads'>;
@@ -196,6 +197,8 @@ export function LeadDetailPanel({ lead, open, onClose }: LeadDetailPanelProps) {
               <Field label="utm_campaign" value={lead.utm_campaign} />
               <Field label="utm_content" value={lead.utm_content} />
             </div>
+            <Separator />
+            <LeadActivities leadId={lead.id} />
           </div>
         </SheetContent>
       </Sheet>
@@ -321,6 +324,8 @@ export function LeadDetailPanel({ lead, open, onClose }: LeadDetailPanelProps) {
               <Input value={form.utm_content ?? ''} onChange={e => set('utm_content', e.target.value)} className="h-9" />
             </EditField>
           </div>
+          <Separator />
+          <LeadActivities leadId={lead.id} />
         </div>
       </SheetContent>
     </Sheet>
