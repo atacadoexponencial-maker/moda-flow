@@ -221,6 +221,16 @@ const DashboardPage = () => {
           />
         </div>
       )}
+
+      {!loading && (
+        <FunnelChart
+          leads={leads.filter((l) => {
+            const { current } = getPeriodRange(period);
+            return isInRange(getLeadDate(l), current);
+          })}
+        />
+      )}
+    </div>
     </div>
   );
 };
