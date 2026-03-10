@@ -76,9 +76,18 @@ export default function LeadsPage() {
   }, [allLeads]);
 
   const faturamentos = useMemo(() => {
+    const order = [
+      'Menos de 20 Mil', 'De 20 a 30 Mil', 'De 30 a 40 Mil', 'De 40 a 75 Mil',
+      'De 75 a 100 Mil', 'De 100 a 150 Mil', 'De 150 a 200 Mil', 'De 200 a 300 Mil',
+      'De 300 a 500 Mil', 'Mais de 500 Mil',
+    ];
     const set = new Set<string>();
     allLeads.forEach(l => { if (l.faturamento_mensal) set.add(l.faturamento_mensal); });
-    return Array.from(set).sort();
+    return Array.from(set).sort((a, b) => {
+      const ia = order.indexOf(a);
+      const ib = order.indexOf(b);
+      return (ia === -1 ? 999 : ia) - (ib === -1 ? 999 : ib);
+    });
   }, [allLeads]);
 
   // Filter
