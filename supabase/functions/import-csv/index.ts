@@ -196,8 +196,11 @@ function buildRecord(row: string[], mappings: FieldMapping[]): Record<string, un
 
   if (!record.nome) return null;
   if (!record.status) record.status = "leads_entrada";
+  // Always set created_at to avoid null in batch inserts
   if (record.data_criada) {
     record.created_at = `${record.data_criada}T00:00:00Z`;
+  } else {
+    record.created_at = new Date().toISOString();
   }
   return record;
 }
