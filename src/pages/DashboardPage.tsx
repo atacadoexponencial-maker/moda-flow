@@ -231,7 +231,6 @@ const DashboardPage = () => {
         />
       )}
     </div>
-    </div>
   );
 };
 
