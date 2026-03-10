@@ -45,7 +45,7 @@ function reg(field: string, ...keys: string[]) {
   keys.forEach(k => { AUTO_MAP[k] = field; });
 }
 
-reg("nome", "nome", "name", "nome (short text)", "nome do lead", "lead name", "nome completo", "full name", "razão social", "razao social", "empresa", "company");
+reg("nome", "nome", "name", "nome (short text)", "nome do lead", "lead name", "nome completo", "full name", "razão social", "razao social", "empresa", "company", "task name", "task name (short text)");
 reg("email", "email", "e-mail", "e-mail (short text)", "email (short text)", "email do lead", "lead email", "correio", "mail");
 reg("whatsapp", "whatsapp", "whatsapp (phone)", "whatsapp (short text)", "telefone", "phone", "celular", "tel", "fone", "número", "numero", "mobile");
 reg("instagram", "instagram", "instagram (short text)", "ig", "@instagram", "perfil instagram");
