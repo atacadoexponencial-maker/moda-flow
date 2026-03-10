@@ -189,7 +189,6 @@ export type Database = {
       }
       meta_config: {
         Row: {
-          access_token: string | null
           ad_account_id: string | null
           ativo: boolean
           created_at: string
@@ -200,7 +199,6 @@ export type Database = {
           vault_secret_id: string | null
         }
         Insert: {
-          access_token?: string | null
           ad_account_id?: string | null
           ativo?: boolean
           created_at?: string
@@ -211,7 +209,6 @@ export type Database = {
           vault_secret_id?: string | null
         }
         Update: {
-          access_token?: string | null
           ad_account_id?: string | null
           ativo?: boolean
           created_at?: string
@@ -261,6 +258,7 @@ export type Database = {
         Args: { new_name: string; new_secret: string }
         Returns: string
       }
+      vault_delete_secret: { Args: { secret_id: string }; Returns: undefined }
       vault_read_secret: { Args: { secret_id: string }; Returns: string }
       vault_read_secret_by_name: {
         Args: { secret_name: string }
