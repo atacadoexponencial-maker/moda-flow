@@ -12,6 +12,7 @@ import HojePage from "@/pages/HojePage";
 import DashboardPage from "@/pages/DashboardPage";
 import ConfiguracoesPage from "@/pages/ConfiguracoesPage";
 import ImportLeadsPage from "@/pages/ImportLeadsPage";
+import MetaAdsConfigPage from "@/pages/MetaAdsConfigPage";
 import NotFound from "@/pages/NotFound";
 
 const queryClient = new QueryClient();
