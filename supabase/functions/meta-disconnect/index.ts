@@ -24,7 +24,6 @@ Deno.serve(async (req) => {
     const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
-    // Verify user
     const userClient = createClient(supabaseUrl, supabaseAnonKey, {
       global: { headers: { Authorization: authHeader } },
     });
@@ -37,39 +36,39 @@ Deno.serve(async (req) => {
       });
     }
 
-    const { ad_account_id, ativo } = await req.json();
-
     const adminClient = createClient(supabaseUrl, serviceRoleKey);
 
-    // Check if config row exists
-    const { data: existing } = await adminClient
+    const { data: config } = await adminClient
       .from("meta_config")
-      .select("id")
+      .select("id, vault_secret_id")
       .limit(1)
       .single();
 
-    const configPayload: Record<string, unknown> = {
-      ad_account_id: ad_account_id ?? null,
-      ativo: ativo ?? false,
-    };
-
-    let result;
-    if (existing) {
-      result = await adminClient
-        .from("meta_config")
-        .update(configPayload)
-        .eq("id", existing.id);
-    } else {
-      result = await adminClient.from("meta_config").insert(configPayload);
+    if (!config) {
+      return new Response(JSON.stringify({ success: true }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
-    if (result.error) {
-      console.error("Config save error:", result.error);
-      return new Response(
-        JSON.stringify({ error: "Falha ao salvar configuração" }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+    // Delete vault secret if exists
+    if (config.vault_secret_id) {
+      await adminClient.rpc("vault_update_secret", {
+        secret_id: config.vault_secret_id,
+        new_secret: "",
+        new_name: "meta_access_token_deleted",
+      });
     }
+
+    // Reset config
+    await adminClient
+      .from("meta_config")
+      .update({
+        vault_secret_id: null,
+        token_expires_at: null,
+        meta_user_name: null,
+        oauth_state: null,
+      })
+      .eq("id", config.id);
 
     return new Response(JSON.stringify({ success: true }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },

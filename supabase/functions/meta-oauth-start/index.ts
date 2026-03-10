@@ -23,6 +23,14 @@ Deno.serve(async (req) => {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const metaAppId = Deno.env.get("META_APP_ID");
+
+    if (!metaAppId) {
+      return new Response(
+        JSON.stringify({ error: "META_APP_ID não configurado" }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
 
     // Verify user
     const userClient = createClient(supabaseUrl, supabaseAnonKey, {
@@ -37,41 +45,39 @@ Deno.serve(async (req) => {
       });
     }
 
-    const { ad_account_id, ativo } = await req.json();
-
     const adminClient = createClient(supabaseUrl, serviceRoleKey);
 
-    // Check if config row exists
+    // Generate CSRF state
+    const state = crypto.randomUUID();
+
+    // Upsert state into meta_config
     const { data: existing } = await adminClient
       .from("meta_config")
       .select("id")
       .limit(1)
       .single();
 
-    const configPayload: Record<string, unknown> = {
-      ad_account_id: ad_account_id ?? null,
-      ativo: ativo ?? false,
-    };
-
-    let result;
     if (existing) {
-      result = await adminClient
+      await adminClient
         .from("meta_config")
-        .update(configPayload)
+        .update({ oauth_state: state })
         .eq("id", existing.id);
     } else {
-      result = await adminClient.from("meta_config").insert(configPayload);
+      await adminClient
+        .from("meta_config")
+        .insert({ oauth_state: state });
     }
 
-    if (result.error) {
-      console.error("Config save error:", result.error);
-      return new Response(
-        JSON.stringify({ error: "Falha ao salvar configuração" }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
+    const redirectUri = `${supabaseUrl}/functions/v1/meta-oauth-callback`;
+    const authUrl =
+      `https://www.facebook.com/v19.0/dialog/oauth` +
+      `?client_id=${metaAppId}` +
+      `&redirect_uri=${encodeURIComponent(redirectUri)}` +
+      `&scope=ads_read,ads_management,business_management` +
+      `&response_type=code` +
+      `&state=${state}`;
 
-    return new Response(JSON.stringify({ success: true }), {
+    return new Response(JSON.stringify({ url: authUrl }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (err) {

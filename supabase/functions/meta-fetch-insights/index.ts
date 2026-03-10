@@ -6,6 +6,64 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+async function maybeRenewToken(
+  adminClient: any,
+  config: any,
+  currentToken: string
+): Promise<string> {
+  // Check if token expires in less than 10 days
+  if (!config.token_expires_at) return currentToken;
+
+  const expiresAt = new Date(config.token_expires_at).getTime();
+  const tenDaysMs = 10 * 24 * 60 * 60 * 1000;
+
+  if (expiresAt - Date.now() > tenDaysMs) return currentToken;
+
+  console.log("Token expiring soon, attempting renewal...");
+
+  const metaAppId = Deno.env.get("META_APP_ID");
+  const metaAppSecret = Deno.env.get("META_APP_SECRET");
+
+  if (!metaAppId || !metaAppSecret) {
+    console.warn("Cannot renew: META_APP_ID or META_APP_SECRET not set");
+    return currentToken;
+  }
+
+  const res = await fetch(
+    `https://graph.facebook.com/v19.0/oauth/access_token` +
+      `?grant_type=fb_exchange_token` +
+      `&client_id=${metaAppId}` +
+      `&client_secret=${metaAppSecret}` +
+      `&fb_exchange_token=${encodeURIComponent(currentToken)}`
+  );
+  const data = await res.json();
+
+  if (data.error || !data.access_token) {
+    console.error("Token renewal failed:", data.error);
+    return currentToken;
+  }
+
+  const newToken = data.access_token;
+  const expiresIn = data.expires_in || 5184000;
+
+  // Update Vault
+  await adminClient.rpc("vault_update_secret", {
+    secret_id: config.vault_secret_id,
+    new_secret: newToken,
+    new_name: "meta_access_token",
+  });
+
+  // Update expiration in meta_config
+  const newExpiresAt = new Date(Date.now() + expiresIn * 1000).toISOString();
+  await adminClient
+    .from("meta_config")
+    .update({ token_expires_at: newExpiresAt })
+    .eq("id", config.id);
+
+  console.log("Token renewed successfully, new expiry:", newExpiresAt);
+  return newToken;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -41,7 +99,7 @@ Deno.serve(async (req) => {
     // Get config
     const { data: config } = await adminClient
       .from("meta_config")
-      .select("vault_secret_id, ad_account_id, ativo")
+      .select("id, vault_secret_id, ad_account_id, ativo, token_expires_at")
       .limit(1)
       .single();
 
@@ -60,16 +118,19 @@ Deno.serve(async (req) => {
     }
 
     // Read token from vault
-    const { data: accessToken, error: secretError } = await adminClient.rpc(
+    const { data: rawToken, error: secretError } = await adminClient.rpc(
       "vault_read_secret",
       { secret_id: config.vault_secret_id }
     );
-    if (secretError || !accessToken) {
+    if (secretError || !rawToken) {
       return new Response(
         JSON.stringify({ error: "Falha ao ler token do Vault" }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
+
+    // Auto-renew if expiring soon
+    const accessToken = await maybeRenewToken(adminClient, config, rawToken);
 
     // Fetch insights from Meta — last 90 days, daily breakdown by campaign
     const today = new Date();
@@ -120,7 +181,6 @@ Deno.serve(async (req) => {
     await adminClient.from("meta_ads_cache").delete().neq("id", "00000000-0000-0000-0000-000000000000");
 
     if (allRows.length > 0) {
-      // Insert in batches of 500
       for (let i = 0; i < allRows.length; i += 500) {
         const batch = allRows.slice(i, i + 500);
         const { error: insertError } = await adminClient
