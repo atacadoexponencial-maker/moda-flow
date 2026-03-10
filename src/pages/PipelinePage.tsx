@@ -23,6 +23,8 @@ import { MoveDialog, type MoveDialogType } from '@/components/pipeline/MoveDialo
 import { LeadDetailPanel } from '@/components/pipeline/LeadDetailPanel';
 import { LeadsFilters, EMPTY_FILTERS, type LeadsFilterState } from '@/components/leads/LeadsFilters';
 import { useLeadsFilterOptions, applyLeadFilters } from '@/lib/leads-filter-utils';
+import { useIsMobile } from '@/hooks/use-mobile';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 
 type Lead = Tables<'leads'>;
 
@@ -125,12 +127,36 @@ function DroppableColumn({ stage, leads, isOver, onCardClick }: { stage: typeof 
   );
 }
 
+/* Mobile: single column view with tabs */
+function MobileColumnView({ stage, leads, onCardClick }: { stage: typeof COLUMN_ORDER[number]; leads: Lead[]; onCardClick: (lead: Lead) => void }) {
+  const total = leads.length;
+  const somaOp = leads.reduce((s, l) => s + (Number(l.oportunidade) || 0), 0);
+
+  return (
+    <div className="flex flex-col">
+      <div className={`rounded-t-lg px-3 py-2 ${getHeaderStyle(stage.value)}`}>
+        <p className="font-semibold text-sm leading-tight">{stage.label}</p>
+        <p className="text-xs mt-0.5 opacity-90">{total} lead{total !== 1 ? 's' : ''} · {formatCurrency(somaOp)}</p>
+      </div>
+      <div className="flex-1 rounded-b-lg p-2 space-y-2 bg-muted/40 max-h-[calc(100vh-18rem)] overflow-y-auto">
+        {leads.map(lead => (
+          <div key={lead.id} onClick={() => onCardClick(lead)}>
+            <LeadCardContent lead={lead} />
+          </div>
+        ))}
+        {total === 0 && <p className="text-xs text-muted-foreground text-center py-4">Nenhum lead</p>}
+      </div>
+    </div>
+  );
+}
+
 function cn(...classes: (string | boolean | undefined)[]) {
   return classes.filter(Boolean).join(' ');
 }
 
 export default function PipelinePage() {
   const queryClient = useQueryClient();
+  const isMobile = useIsMobile();
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
 
   const [filters, setFilters] = useState<LeadsFilterState>({ ...EMPTY_FILTERS });
@@ -139,6 +165,7 @@ export default function PipelinePage() {
   const [dialogType, setDialogType] = useState<MoveDialogType | null>(null);
   const [overColumn, setOverColumn] = useState<string | null>(null);
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
+  const [activeTab, setActiveTab] = useState(COLUMN_ORDER[0].value);
 
   const { data: allLeads = [], isLoading } = useQuery({
     queryKey: ['leads-pipeline'],
@@ -236,8 +263,10 @@ export default function PipelinePage() {
   return (
     <div className="space-y-4">
       <div>
-        <h2 className="text-2xl font-bold text-foreground">Pipeline</h2>
-        <p className="text-muted-foreground mt-1">Arraste os cards para mover leads entre etapas.</p>
+        <h2 className="text-xl md:text-2xl font-bold text-foreground">Pipeline</h2>
+        <p className="text-muted-foreground text-sm mt-1">
+          {isMobile ? 'Toque em um card para ver detalhes.' : 'Arraste os cards para mover leads entre etapas.'}
+        </p>
       </div>
 
       <LeadsFilters
@@ -251,11 +280,43 @@ export default function PipelinePage() {
 
       {isLoading ? (
         <div className="flex gap-3 overflow-hidden">
-          {Array.from({ length: 5 }).map((_, i) => (
-            <div key={i} className="w-64 min-w-[16rem] shrink-0 h-48 rounded-lg bg-muted animate-pulse" />
+          {Array.from({ length: isMobile ? 1 : 5 }).map((_, i) => (
+            <div key={i} className="w-full md:w-64 md:min-w-[16rem] shrink-0 h-48 rounded-lg bg-muted animate-pulse" />
           ))}
         </div>
+      ) : isMobile ? (
+        /* ── MOBILE: Tabs per column ── */
+        <Tabs value={activeTab} onValueChange={setActiveTab}>
+          <ScrollArea className="w-full">
+            <TabsList className="inline-flex w-max h-auto gap-1 bg-muted/50 p-1">
+              {COLUMN_ORDER.map(stage => {
+                const count = grouped[stage.value].length;
+                return (
+                  <TabsTrigger
+                    key={stage.value}
+                    value={stage.value}
+                    className="text-xs px-2.5 py-1.5 whitespace-nowrap data-[state=active]:bg-background"
+                  >
+                    {stage.label.replace(' ✅', '').replace(' ❌', '')}
+                    {count > 0 && <span className="ml-1 text-[10px] opacity-70">({count})</span>}
+                  </TabsTrigger>
+                );
+              })}
+            </TabsList>
+            <ScrollBar orientation="horizontal" />
+          </ScrollArea>
+          {COLUMN_ORDER.map(stage => (
+            <TabsContent key={stage.value} value={stage.value} className="mt-2">
+              <MobileColumnView
+                stage={stage}
+                leads={grouped[stage.value]}
+                onCardClick={setSelectedLead}
+              />
+            </TabsContent>
+          ))}
+        </Tabs>
       ) : (
+        /* ── DESKTOP: DnD Kanban ── */
         <DndContext sensors={sensors} onDragStart={handleDragStart} onDragOver={handleDragOver} onDragEnd={handleDragEnd}>
           <ScrollArea className="w-full">
             <div className="flex gap-3 pb-4 pr-4">

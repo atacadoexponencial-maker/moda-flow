@@ -17,6 +17,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useQueryClient } from '@tanstack/react-query';
 import { cn } from '@/lib/utils';
 import { LeadActivities } from '@/components/pipeline/LeadActivities';
+import { useIsMobile } from '@/hooks/use-mobile';
 import type { Tables } from '@/integrations/supabase/types';
 
 type Lead = Tables<'leads'>;
@@ -103,6 +104,7 @@ interface LeadDetailPanelProps {
 
 export function LeadDetailPanel({ lead, open, onClose }: LeadDetailPanelProps) {
   const queryClient = useQueryClient();
+  const isMobile = useIsMobile();
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState<Partial<Lead>>({});
   const [saving, setSaving] = useState(false);
@@ -138,11 +140,20 @@ export function LeadDetailPanel({ lead, open, onClose }: LeadDetailPanelProps) {
     setEditing(false);
   };
 
+  // Mobile: full screen; Desktop: side sheet
+  const sheetSide = isMobile ? 'bottom' as const : 'right' as const;
+
   // ── VIEW MODE ──
   if (!editing) {
     return (
       <Sheet open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
-        <SheetContent className="w-full sm:max-w-md overflow-y-auto">
+        <SheetContent
+          side={sheetSide}
+          className={cn(
+            'overflow-y-auto',
+            isMobile ? 'h-[100dvh] max-h-[100dvh] w-full rounded-none p-4 pb-20' : 'w-full sm:max-w-md'
+          )}
+        >
           <SheetHeader className="flex-row items-center justify-between space-y-0 pr-2">
             <SheetTitle className="text-lg">{lead.nome}</SheetTitle>
             <Button variant="outline" size="sm" onClick={() => setEditing(true)}>
@@ -201,6 +212,23 @@ export function LeadDetailPanel({ lead, open, onClose }: LeadDetailPanelProps) {
             <Separator />
             <LeadActivities leadId={lead.id} />
           </div>
+
+          {/* Mobile fixed footer action */}
+          {isMobile && (
+            <div className="fixed bottom-0 left-0 right-0 p-3 bg-background border-t border-border flex gap-2 z-50">
+              <Button className="flex-1" onClick={() => setEditing(true)}>
+                <Pencil className="h-4 w-4 mr-2" />
+                Editar Lead
+              </Button>
+              {waLink && (
+                <Button variant="outline" asChild>
+                  <a href={waLink} target="_blank" rel="noopener noreferrer">
+                    <ExternalLink className="h-4 w-4" />
+                  </a>
+                </Button>
+              )}
+            </div>
+          )}
         </SheetContent>
       </Sheet>
     );
@@ -209,17 +237,25 @@ export function LeadDetailPanel({ lead, open, onClose }: LeadDetailPanelProps) {
   // ── EDIT MODE ──
   return (
     <Sheet open={open} onOpenChange={(o) => { if (!o) { handleCancel(); onClose(); } }}>
-      <SheetContent className="w-full sm:max-w-md overflow-y-auto">
+      <SheetContent
+        side={sheetSide}
+        className={cn(
+          'overflow-y-auto',
+          isMobile ? 'h-[100dvh] max-h-[100dvh] w-full rounded-none p-4 pb-20' : 'w-full sm:max-w-md'
+        )}
+      >
         <SheetHeader className="flex-row items-center justify-between space-y-0 pr-2">
           <SheetTitle className="text-lg">Editando Lead</SheetTitle>
-          <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={handleCancel} disabled={saving}>
-              <X className="h-3.5 w-3.5 mr-1" />Cancelar
-            </Button>
-            <Button size="sm" onClick={handleSave} disabled={saving}>
-              <Save className="h-3.5 w-3.5 mr-1" />{saving ? 'Salvando…' : 'Salvar'}
-            </Button>
-          </div>
+          {!isMobile && (
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm" onClick={handleCancel} disabled={saving}>
+                <X className="h-3.5 w-3.5 mr-1" />Cancelar
+              </Button>
+              <Button size="sm" onClick={handleSave} disabled={saving}>
+                <Save className="h-3.5 w-3.5 mr-1" />{saving ? 'Salvando…' : 'Salvar'}
+              </Button>
+            </div>
+          )}
         </SheetHeader>
 
         <div className="space-y-4 mt-4">
@@ -328,6 +364,18 @@ export function LeadDetailPanel({ lead, open, onClose }: LeadDetailPanelProps) {
           <Separator />
           <LeadActivities leadId={lead.id} />
         </div>
+
+        {/* Mobile fixed footer actions */}
+        {isMobile && (
+          <div className="fixed bottom-0 left-0 right-0 p-3 bg-background border-t border-border flex gap-2 z-50">
+            <Button variant="outline" className="flex-1" onClick={handleCancel} disabled={saving}>
+              <X className="h-4 w-4 mr-1" />Cancelar
+            </Button>
+            <Button className="flex-1" onClick={handleSave} disabled={saving}>
+              <Save className="h-4 w-4 mr-1" />{saving ? 'Salvando…' : 'Salvar'}
+            </Button>
+          </div>
+        )}
       </SheetContent>
     </Sheet>
   );
