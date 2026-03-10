@@ -155,19 +155,22 @@ export function LeadsFilters({ filters, onChange, utmSources, faturamentos }: Pr
       </div>
       <div className="flex flex-wrap gap-2 items-center">
         <span className="text-xs text-muted-foreground">Entrada:</span>
-        <div className="flex gap-1 flex-wrap">
-          {DATE_SHORTCUTS.map(s => (
-            <Button
-              key={s.label}
-              variant="outline"
-              size="sm"
-              className="h-7 text-xs px-2.5"
-              onClick={() => applyShortcut(s)}
-            >
-              {s.label}
-            </Button>
-          ))}
-        </div>
+        <Select
+          value="placeholder"
+          onValueChange={v => {
+            const shortcut = DATE_SHORTCUTS.find(s => s.label === v);
+            if (shortcut) applyShortcut(shortcut);
+          }}
+        >
+          <SelectTrigger className="w-44 h-9">
+            <SelectValue placeholder="Atalhos de data" />
+          </SelectTrigger>
+          <SelectContent>
+            {DATE_SHORTCUTS.map(s => (
+              <SelectItem key={s.label} value={s.label}>{s.label}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
         <div className="flex gap-2 items-center">
           <Popover>
             <PopoverTrigger asChild>
