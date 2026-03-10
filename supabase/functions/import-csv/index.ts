@@ -95,14 +95,6 @@ function parseCSV(text: string): { headers: string[]; rows: string[][] } {
   return { headers, rows };
 }
 
-// Column indices based on the ClickUp CSV header
-// 0: Task ID, 1: Task Name, 6: Status, 7: Date Created,
-// 8: Último contato, 9: Próximo contato, 10: RA (date), 11: Produto, 12: Funil,
-// 13: MQL, 14: SQL, 15: RA (emoji), 16: RR (emoji), 17: Faturamento Mensal,
-// 18: Oportunidade, 19: Arrecadado, 20: Loss, 21: Nome, 22: E-mail,
-// 23: Whatsapp, 24: Instagram, 25: Justificativa, 26: Objetivo,
-// 27: Comment Count, 28-32: UTMs
-
 const BOOL_FIELDS = new Set(["mql", "sql_flag", "ra_flag", "rr_flag"]);
 const NUM_FIELDS = new Set(["oportunidade", "arrecadado"]);
 const DATE_FIELDS = new Set(["data_criada", "data_ultimo_contato", "data_proximo_contato", "data_ra"]);
@@ -135,12 +127,12 @@ function getAutoMapping(headers: string[]): FieldMapping[] {
     const hint = getHint(raw);
     let field = "__skip__";
 
-    if (norm.includes("task name") || norm === "task name") field = "nome";
+    if (norm === "task name") field = "nome";
     else if (norm.includes("nome") || norm === "name") field = "nome";
     else if (norm.includes("e-mail") || norm.includes("email")) field = "email";
     else if (norm.includes("whatsapp") || norm.includes("telefone") || norm.includes("phone")) field = "whatsapp";
     else if (norm.includes("instagram")) field = "instagram";
-    else if (norm.includes("status") || norm === "status") field = "status";
+    else if (norm === "status") field = "status";
     else if (norm.includes("faturamento")) field = "faturamento_mensal";
     else if (norm.includes("oportunidade") || norm.includes("opportunity")) field = "oportunidade";
     else if (norm.includes("arrecadado")) field = "arrecadado";
@@ -148,7 +140,7 @@ function getAutoMapping(headers: string[]): FieldMapping[] {
     else if (norm.includes("objetivo")) field = "objetivo";
     else if (norm.includes("utm_source") || norm === "source") field = "utm_source";
     else if (norm.includes("utm_medium") || norm === "medium") field = "utm_medium";
-    else if (norm.includes("utm_content") || norm === "content") field = "utm_content";
+    else if (norm.includes("utm_content")) field = "utm_content";
     else if (norm.includes("utm") && (norm.includes("campaign") || norm.includes("campaing"))) field = "utm_campaign";
     else if (norm.includes("utm_posicion") || norm.includes("posicion")) field = "utm_posicion";
     else if (norm.includes("ultimo contato") || norm.includes("last contact")) field = "data_ultimo_contato";
@@ -157,17 +149,17 @@ function getAutoMapping(headers: string[]): FieldMapping[] {
     else if (norm.includes("funil") || norm.includes("funnel")) field = "funil";
     else if (norm.includes("produto") || norm.includes("product")) field = "produto";
     else if (norm.includes("loss")) field = "loss_reason";
-    else if (norm === "ra" || norm === "ra") {
+    else if (norm === "ra" || norm.startsWith("ra ")) {
       if (hint === "date") field = "data_ra";
       else if (hint === "emoji") field = "ra_flag";
     }
-    else if (norm === "mql" || norm.includes("mql")) {
+    else if (norm === "mql" || norm.startsWith("mql ")) {
       field = "mql";
     }
-    else if (norm === "sql" || norm.includes("sql")) {
+    else if (norm === "sql" || norm.startsWith("sql ")) {
       field = "sql_flag";
     }
-    else if (norm === "rr" || norm.includes("rr")) {
+    else if (norm === "rr" || norm.startsWith("rr ")) {
       if (hint === "emoji") field = "rr_flag";
     }
 
@@ -196,7 +188,6 @@ function buildRecord(row: string[], mappings: FieldMapping[]): Record<string, un
     } else if (DATE_FIELDS.has(dbField)) {
       record[dbField] = parseDate(raw);
     } else {
-      // Don't overwrite non-empty with empty (Task Name → Nome fallback)
       if (raw || !record[dbField]) {
         record[dbField] = raw || null;
       }
@@ -217,24 +208,34 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const csvText = await req.text();
-    if (!csvText) {
-      return new Response(JSON.stringify({ error: "No CSV data provided" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
+    // Download CSV from storage
+    const { data: fileData, error: downloadError } = await supabase.storage
+      .from("imports")
+      .download("crm.csv");
+
+    if (downloadError || !fileData) {
+      return new Response(JSON.stringify({ error: "Failed to download CSV from storage: " + downloadError?.message }), {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const csvText = await fileData.text();
     const { headers, rows } = parseCSV(csvText);
     const mappings = getAutoMapping(headers);
 
+    console.log("CSV headers:", headers.length);
+    console.log("CSV rows:", rows.length);
+    console.log("Mappings:", JSON.stringify(mappings.map(m => ({ col: headers[m.csvIndex], field: m.dbField }))));
+
     let success = 0;
     let errors = 0;
+    const errorDetails: string[] = [];
     const batch = 50;
 
     for (let i = 0; i < rows.length; i += batch) {
@@ -243,7 +244,7 @@ Deno.serve(async (req) => {
       if (records.length) {
         const { error } = await supabase.from("leads").insert(records as any[]);
         if (error) {
-          console.error(`Batch error at ${i}:`, error.message);
+          errorDetails.push(`Batch ${i}: ${error.message}`);
           errors += chunk.length;
         } else {
           success += records.length;
@@ -254,7 +255,7 @@ Deno.serve(async (req) => {
       }
     }
 
-    return new Response(JSON.stringify({ success, errors, totalRows: rows.length }), {
+    return new Response(JSON.stringify({ success, errors, totalRows: rows.length, errorDetails }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (err) {
