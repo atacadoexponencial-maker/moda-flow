@@ -2,6 +2,7 @@ import { LogOut } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { SidebarTrigger } from '@/components/ui/sidebar';
 import { useAuth } from '@/hooks/useAuth';
+import { GlobalSearch } from '@/components/GlobalSearch';
 
 export function AppHeader() {
   const { user, signOut } = useAuth();
@@ -15,6 +16,7 @@ export function AppHeader() {
         </h1>
       </div>
       <div className="flex items-center gap-3">
+        <GlobalSearch />
         <span className="text-sm text-muted-foreground hidden sm:block">{user?.email}</span>
         <Button variant="ghost" size="sm" onClick={signOut} className="gap-1.5">
           <LogOut className="h-4 w-4" />
