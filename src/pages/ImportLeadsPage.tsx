@@ -271,7 +271,10 @@ function buildRecord(row: string[], headers: string[], mapping: Record<number, s
     } else if (DATE_FIELDS.has(field)) {
       record[field] = parseDate(raw);
     } else {
-      record[field] = raw || null;
+      // Don't overwrite a non-empty value with empty (e.g. Task Name → Nome fallback)
+      if (raw || !record[field]) {
+        record[field] = raw || null;
+      }
     }
   }
   if (!record.nome) return null;
