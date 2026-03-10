@@ -32,10 +32,10 @@ export function AppSidebar() {
           <div className="px-4 pb-4 mb-2 border-b border-sidebar-border">
             <div className="flex items-center gap-2.5">
               <div className="w-9 h-9 rounded-lg bg-sidebar-accent flex items-center justify-center shrink-0">
-                <span className="text-sidebar-accent-foreground font-bold text-sm">S7</span>
+                <span className="text-sidebar-accent-foreground font-bold text-sm font-display">AE</span>
               </div>
-              <span className="text-sidebar-primary font-semibold text-sm leading-tight">
-                CRM Sete<br />Aceleradora
+              <span className="text-sidebar-primary font-semibold text-sm leading-tight font-display">
+                CRM Atacado<br />Exponencial
               </span>
             </div>
           </div>

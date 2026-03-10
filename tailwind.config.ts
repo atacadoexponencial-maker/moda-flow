@@ -13,7 +13,8 @@ export default {
       },
     },
     fontFamily: {
-      sans: ['Inter', 'system-ui', 'sans-serif'],
+      sans: ['Satoshi', 'system-ui', 'sans-serif'],
+      display: ['Montserrat', 'system-ui', 'sans-serif'],
     },
     extend: {
       colors: {
