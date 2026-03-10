@@ -11,6 +11,7 @@ import {
   isInRange,
 } from "@/lib/dashboard-utils";
 import { ACTIVE_STAGES } from "@/lib/constants";
+import { FunnelChart } from "@/components/dashboard/FunnelChart";
 
 interface Lead {
   data_criada: string | null;
@@ -219,6 +220,15 @@ const DashboardPage = () => {
             icon={<Trophy className="h-4 w-4 text-primary" />}
           />
         </div>
+      )}
+
+      {!loading && (
+        <FunnelChart
+          leads={leads.filter((l) => {
+            const { current } = getPeriodRange(period);
+            return isInRange(getLeadDate(l), current);
+          })}
+        />
       )}
     </div>
   );
