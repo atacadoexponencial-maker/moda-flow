@@ -231,21 +231,27 @@ export type Database = {
           ativo: boolean | null
           created_at: string | null
           id: string | null
+          meta_user_name: string | null
           token_configurado: boolean | null
+          token_expires_at: string | null
         }
         Insert: {
           ad_account_id?: string | null
           ativo?: boolean | null
           created_at?: string | null
           id?: string | null
+          meta_user_name?: string | null
           token_configurado?: never
+          token_expires_at?: string | null
         }
         Update: {
           ad_account_id?: string | null
           ativo?: boolean | null
           created_at?: string | null
           id?: string | null
+          meta_user_name?: string | null
           token_configurado?: never
+          token_expires_at?: string | null
         }
         Relationships: []
       }
