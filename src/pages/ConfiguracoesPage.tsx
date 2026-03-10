@@ -1,7 +1,7 @@
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { FileSpreadsheet, Megaphone } from "lucide-react";
+import { FileSpreadsheet, Megaphone, Link2 } from "lucide-react";
 
 const ConfiguracoesPage = () => {
   const navigate = useNavigate();
