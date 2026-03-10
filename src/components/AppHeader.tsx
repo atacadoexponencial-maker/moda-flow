@@ -11,8 +11,8 @@ export function AppHeader() {
     <header className="h-14 border-b border-border bg-card flex items-center justify-between px-4 shrink-0">
       <div className="flex items-center gap-3">
         <SidebarTrigger />
-        <h1 className="text-base font-semibold text-foreground hidden sm:block">
-          CRM Sete Aceleradora
+        <h1 className="text-base font-semibold text-foreground hidden sm:block font-display">
+          CRM Atacado Exponencial
         </h1>
       </div>
       <div className="flex items-center gap-3">

@@ -37,10 +37,10 @@ const LoginPage = () => {
       <Card className="w-full max-w-md shadow-xl border-border/50">
         <CardHeader className="text-center space-y-3 pb-2">
           <div className="mx-auto w-14 h-14 rounded-xl bg-primary flex items-center justify-center">
-            <span className="text-primary-foreground font-bold text-xl">S7</span>
+            <span className="text-primary-foreground font-bold text-xl font-display">AE</span>
           </div>
           <div>
-            <h1 className="text-2xl font-bold text-foreground">CRM Sete Aceleradora</h1>
+            <h1 className="text-2xl font-bold text-foreground font-display">CRM Atacado Exponencial</h1>
             <p className="text-muted-foreground text-sm mt-1">
               {isSignUp ? 'Crie sua conta' : 'Acesse sua conta'}
             </p>
