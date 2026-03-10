@@ -1,7 +1,7 @@
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { FileSpreadsheet } from "lucide-react";
+import { FileSpreadsheet, Megaphone } from "lucide-react";
 
 const ConfiguracoesPage = () => {
   const navigate = useNavigate();
@@ -21,6 +21,17 @@ const ConfiguracoesPage = () => {
             <p className="text-sm text-muted-foreground">Faça upload de um CSV para importar leads em massa.</p>
           </div>
           <Button variant="outline" className="ml-auto" size="sm">Importar</Button>
+        </CardContent>
+      </Card>
+
+      <Card className="cursor-pointer hover:border-primary/50 transition-colors" onClick={() => navigate("/configuracoes/meta-ads")}>
+        <CardContent className="flex items-center gap-4 py-5">
+          <Megaphone className="h-8 w-8 text-primary" />
+          <div>
+            <p className="font-medium text-foreground">Integração Meta Ads</p>
+            <p className="text-sm text-muted-foreground">Configure o acesso à API do Meta para sincronizar dados de investimento.</p>
+          </div>
+          <Button variant="outline" className="ml-auto" size="sm">Configurar</Button>
         </CardContent>
       </Card>
     </div>

@@ -12,6 +12,7 @@ import HojePage from "@/pages/HojePage";
 import DashboardPage from "@/pages/DashboardPage";
 import ConfiguracoesPage from "@/pages/ConfiguracoesPage";
 import ImportLeadsPage from "@/pages/ImportLeadsPage";
+import MetaAdsConfigPage from "@/pages/MetaAdsConfigPage";
 import NotFound from "@/pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -39,6 +40,7 @@ function AuthenticatedRoutes() {
         <Route path="/dashboard" element={<DashboardPage />} />
         <Route path="/configuracoes" element={<ConfiguracoesPage />} />
         <Route path="/configuracoes/importar" element={<ImportLeadsPage />} />
+        <Route path="/configuracoes/meta-ads" element={<MetaAdsConfigPage />} />
       </Route>
       <Route path="*" element={<NotFound />} />
     </Routes>

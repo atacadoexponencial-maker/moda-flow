@@ -1,1 +1,10 @@
 project_id = "tqnacawmasprkoiumxac"
+
+[functions.meta-save-config]
+verify_jwt = false
+
+[functions.meta-test-connection]
+verify_jwt = false
+
+[functions.meta-fetch-insights]
+verify_jwt = false
