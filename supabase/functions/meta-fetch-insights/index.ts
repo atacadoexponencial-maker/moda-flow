@@ -11,7 +11,6 @@ async function maybeRenewToken(
   config: any,
   currentToken: string
 ): Promise<string> {
-  // Check if token expires in less than 10 days
   if (!config.token_expires_at) return currentToken;
 
   const expiresAt = new Date(config.token_expires_at).getTime();
@@ -46,18 +45,10 @@ async function maybeRenewToken(
   const newToken = data.access_token;
   const expiresIn = data.expires_in || 5184000;
 
-  // Update Vault
-  await adminClient.rpc("vault_update_secret", {
-    secret_id: config.vault_secret_id,
-    new_secret: newToken,
-    new_name: "meta_access_token",
-  });
-
-  // Update expiration in meta_config
   const newExpiresAt = new Date(Date.now() + expiresIn * 1000).toISOString();
   await adminClient
     .from("meta_config")
-    .update({ token_expires_at: newExpiresAt })
+    .update({ access_token: newToken, token_expires_at: newExpiresAt })
     .eq("id", config.id);
 
   console.log("Token renewed successfully, new expiry:", newExpiresAt);
@@ -85,9 +76,8 @@ Deno.serve(async (req) => {
     const userClient = createClient(supabaseUrl, supabaseAnonKey, {
       global: { headers: { Authorization: authHeader } },
     });
-    const token = authHeader.replace("Bearer ", "");
-    const { error: claimsError } = await userClient.auth.getClaims(token);
-    if (claimsError) {
+    const { error: userError } = await userClient.auth.getUser();
+    if (userError) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
         status: 401,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -99,11 +89,11 @@ Deno.serve(async (req) => {
     // Get config
     const { data: config } = await adminClient
       .from("meta_config")
-      .select("id, vault_secret_id, ad_account_id, ativo, token_expires_at")
+      .select("id, access_token, ad_account_id, ativo, token_expires_at")
       .limit(1)
       .single();
 
-    if (!config?.vault_secret_id || !config?.ad_account_id) {
+    if (!config?.access_token || !config?.ad_account_id) {
       return new Response(
         JSON.stringify({ error: "Configuração incompleta. Configure o token e o Ad Account ID." }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -117,22 +107,10 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Read token from vault
-    const { data: rawToken, error: secretError } = await adminClient.rpc(
-      "vault_read_secret",
-      { secret_id: config.vault_secret_id }
-    );
-    if (secretError || !rawToken) {
-      return new Response(
-        JSON.stringify({ error: "Falha ao ler token do Vault" }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
     // Auto-renew if expiring soon
-    const accessToken = await maybeRenewToken(adminClient, config, rawToken);
+    const accessToken = await maybeRenewToken(adminClient, config, config.access_token);
 
-    // Fetch insights from Meta — last 90 days, daily breakdown by campaign
+    // Fetch insights from Meta — last 90 days
     const today = new Date();
     const since = new Date(today);
     since.setDate(since.getDate() - 90);

@@ -27,9 +27,8 @@ Deno.serve(async (req) => {
     const userClient = createClient(supabaseUrl, supabaseAnonKey, {
       global: { headers: { Authorization: authHeader } },
     });
-    const token = authHeader.replace("Bearer ", "");
-    const { error: claimsError } = await userClient.auth.getClaims(token);
-    if (claimsError) {
+    const { error: userError } = await userClient.auth.getUser();
+    if (userError) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
         status: 401,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -40,7 +39,7 @@ Deno.serve(async (req) => {
 
     const { data: config } = await adminClient
       .from("meta_config")
-      .select("id, vault_secret_id")
+      .select("id")
       .limit(1)
       .single();
 
@@ -50,19 +49,11 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Delete vault secret if exists
-    if (config.vault_secret_id) {
-      await adminClient.rpc("vault_update_secret", {
-        secret_id: config.vault_secret_id,
-        new_secret: "",
-        new_name: "meta_access_token_deleted",
-      });
-    }
-
-    // Reset config
+    // Clear token and connection info
     await adminClient
       .from("meta_config")
       .update({
+        access_token: null,
         vault_secret_id: null,
         token_expires_at: null,
         meta_user_name: null,

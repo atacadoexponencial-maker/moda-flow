@@ -7,7 +7,6 @@ Deno.serve(async (req) => {
     const state = url.searchParams.get("state");
     const errorParam = url.searchParams.get("error");
 
-    // Determine frontend redirect base (use origin or fallback)
     const frontendBase = Deno.env.get("FRONTEND_URL") || url.origin.replace("/functions/v1/meta-oauth-callback", "");
 
     if (errorParam) {
@@ -34,7 +33,7 @@ Deno.serve(async (req) => {
     // Validate CSRF state
     const { data: config } = await adminClient
       .from("meta_config")
-      .select("id, oauth_state, vault_secret_id")
+      .select("id, oauth_state")
       .limit(1)
       .single();
 
@@ -89,7 +88,7 @@ Deno.serve(async (req) => {
     }
 
     const longLivedToken = longLivedData.access_token;
-    const expiresIn = longLivedData.expires_in || 5184000; // default 60 days
+    const expiresIn = longLivedData.expires_in || 5184000;
 
     // Fetch Meta user name
     const meRes = await fetch(
@@ -98,37 +97,14 @@ Deno.serve(async (req) => {
     const meData = await meRes.json();
     const metaUserName = meData.name || "Conta Meta";
 
-    // Store token in Vault
-    let vaultSecretId = config.vault_secret_id;
-    if (vaultSecretId) {
-      await adminClient.rpc("vault_update_secret", {
-        secret_id: vaultSecretId,
-        new_secret: longLivedToken,
-        new_name: "meta_access_token",
-      });
-    } else {
-      const { data: newId, error: vaultError } = await adminClient.rpc("vault_create_secret", {
-        new_secret: longLivedToken,
-        new_name: "meta_access_token",
-      });
-      if (vaultError) {
-        console.error("Vault error:", vaultError);
-        return Response.redirect(
-          `${frontendBase}/configuracoes/meta-ads?meta=erro&msg=vault_error`,
-          302
-        );
-      }
-      vaultSecretId = newId;
-    }
-
     // Calculate expiration date
     const tokenExpiresAt = new Date(Date.now() + expiresIn * 1000).toISOString();
 
-    // Update meta_config
+    // Store token directly in meta_config (protected by RLS + service role)
     await adminClient
       .from("meta_config")
       .update({
-        vault_secret_id: vaultSecretId,
+        access_token: longLivedToken,
         token_expires_at: tokenExpiresAt,
         meta_user_name: metaUserName,
         oauth_state: null,
