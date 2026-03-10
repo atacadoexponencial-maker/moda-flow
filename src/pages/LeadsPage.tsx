@@ -4,6 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
 import { ChevronUp, ChevronDown, ChevronsUpDown, Check, X as XIcon, Download } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -12,6 +13,7 @@ import { LeadDetailPanel } from '@/components/pipeline/LeadDetailPanel';
 import { NewLeadDialog } from '@/components/leads/NewLeadDialog';
 import { LeadsFilters, EMPTY_FILTERS, type LeadsFilterState } from '@/components/leads/LeadsFilters';
 import { useLeadsFilterOptions, applyLeadFilters } from '@/lib/leads-filter-utils';
+import { useIsMobile } from '@/hooks/use-mobile';
 import type { Tables } from '@/integrations/supabase/types';
 
 type Lead = Tables<'leads'>;
@@ -40,7 +42,30 @@ function BoolIcon({ val }: { val: boolean | null }) {
     : <XIcon className="h-3.5 w-3.5 text-muted-foreground/40" />;
 }
 
+/* ── Mobile Lead Card ── */
+function LeadCard({ lead, onClick }: { lead: Lead; onClick: () => void }) {
+  return (
+    <Card className="p-3 space-y-2 cursor-pointer active:bg-muted/50" onClick={onClick}>
+      <div className="flex items-center justify-between gap-2">
+        <p className="font-semibold text-sm text-foreground truncate">{lead.nome}</p>
+        <Badge variant="secondary" className="text-[10px] whitespace-nowrap shrink-0">{getStageLabel(lead.status)}</Badge>
+      </div>
+      <div className="flex items-center gap-2 flex-wrap text-xs text-muted-foreground">
+        {lead.faturamento_mensal && <span>{lead.faturamento_mensal}</span>}
+        <span>{formatCurrency(lead.oportunidade)}</span>
+        <span className="ml-auto">{formatDate(getEntrada(lead))}</span>
+      </div>
+      <div className="flex items-center gap-1.5">
+        {lead.mql && <Badge className="text-[10px] px-1.5 py-0 bg-accent text-accent-foreground">MQL</Badge>}
+        {lead.sql_flag && <Badge className="text-[10px] px-1.5 py-0 bg-primary text-primary-foreground">SQL</Badge>}
+        {lead.utm_source && <span className="text-[10px] text-muted-foreground ml-auto">{lead.utm_source}</span>}
+      </div>
+    </Card>
+  );
+}
+
 export default function LeadsPage() {
+  const isMobile = useIsMobile();
   const [filters, setFilters] = useState<LeadsFilterState>({ ...EMPTY_FILTERS });
   const [sortKey, setSortKey] = useState<SortKey>('entrada');
   const [sortDir, setSortDir] = useState<SortDir>('desc');
@@ -67,10 +92,8 @@ export default function LeadsPage() {
 
   const { utmSources, faturamentos, produtos, funis } = useLeadsFilterOptions(allLeads);
 
-  // Filter
   const filtered = useMemo(() => applyLeadFilters(allLeads, filters), [allLeads, filters]);
 
-  // Sort
   const sorted = useMemo(() => {
     const arr = [...filtered];
     arr.sort((a, b) => {
@@ -96,7 +119,6 @@ export default function LeadsPage() {
     return arr;
   }, [filtered, sortKey, sortDir]);
 
-  // Paginate
   const totalPages = Math.ceil(sorted.length / PER_PAGE);
   const paginated = sorted.slice(page * PER_PAGE, (page + 1) * PER_PAGE);
 
@@ -162,15 +184,15 @@ export default function LeadsPage() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-2">
         <div>
-          <h2 className="text-2xl font-bold text-foreground">Leads</h2>
+          <h2 className="text-xl md:text-2xl font-bold text-foreground">Leads</h2>
           <p className="text-sm text-muted-foreground">{filtered.length} leads encontrados</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={exportCSV} disabled={sorted.length === 0}>
-            <Download className="h-4 w-4 mr-2" />
-            Exportar CSV
+          <Button variant="outline" size={isMobile ? 'sm' : 'default'} onClick={exportCSV} disabled={sorted.length === 0}>
+            <Download className="h-4 w-4 mr-1 md:mr-2" />
+            {!isMobile && 'Exportar CSV'}
           </Button>
           <NewLeadDialog />
         </div>
@@ -185,42 +207,60 @@ export default function LeadsPage() {
         funis={funis}
       />
 
-      <div className="rounded-md border overflow-auto">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <SortableHead col="nome">Nome</SortableHead>
-              <SortableHead col="entrada">Entrada</SortableHead>
-              <SortableHead col="status">Status</SortableHead>
-              <SortableHead col="faturamento_mensal">Faturamento</SortableHead>
-              <SortableHead col="oportunidade">Oportunidade</SortableHead>
-              <SortableHead col="data_proximo_contato">Próx. Contato</SortableHead>
-              <SortableHead col="mql" className="text-center">MQL</SortableHead>
-              <SortableHead col="sql_flag" className="text-center">SQL</SortableHead>
-              <SortableHead col="utm_source">Fonte</SortableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {isLoading ? (
-              <TableRow><TableCell colSpan={9} className="text-center py-8 text-muted-foreground">Carregando…</TableCell></TableRow>
-            ) : paginated.length === 0 ? (
-              <TableRow><TableCell colSpan={9} className="text-center py-8 text-muted-foreground">Nenhum lead encontrado</TableCell></TableRow>
-            ) : paginated.map(lead => (
-              <TableRow key={lead.id} className="cursor-pointer hover:bg-muted/50" onClick={() => setSelectedLead(lead)}>
-                <TableCell className="font-medium max-w-[200px] truncate">{lead.nome}</TableCell>
-                <TableCell className="text-xs whitespace-nowrap">{formatDate(getEntrada(lead))}</TableCell>
-                <TableCell><Badge variant="secondary" className="text-[10px] whitespace-nowrap">{getStageLabel(lead.status)}</Badge></TableCell>
-                <TableCell className="text-xs">{lead.faturamento_mensal ?? '—'}</TableCell>
-                <TableCell className="text-xs whitespace-nowrap">{formatCurrency(lead.oportunidade)}</TableCell>
-                <TableCell className="text-xs whitespace-nowrap">{formatDate(lead.data_proximo_contato)}</TableCell>
-                <TableCell className="text-center"><BoolIcon val={lead.mql} /></TableCell>
-                <TableCell className="text-center"><BoolIcon val={lead.sql_flag} /></TableCell>
-                <TableCell className="text-xs max-w-[120px] truncate">{lead.utm_source ?? '—'}</TableCell>
+      {/* ── MOBILE: Stacked cards ── */}
+      {isMobile ? (
+        <div className="space-y-2">
+          {isLoading ? (
+            Array.from({ length: 5 }).map((_, i) => (
+              <div key={i} className="h-20 rounded-lg bg-muted animate-pulse" />
+            ))
+          ) : paginated.length === 0 ? (
+            <p className="text-center py-8 text-muted-foreground">Nenhum lead encontrado</p>
+          ) : (
+            paginated.map(lead => (
+              <LeadCard key={lead.id} lead={lead} onClick={() => setSelectedLead(lead)} />
+            ))
+          )}
+        </div>
+      ) : (
+        /* ── DESKTOP: Table ── */
+        <div className="rounded-md border overflow-auto">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <SortableHead col="nome">Nome</SortableHead>
+                <SortableHead col="entrada">Entrada</SortableHead>
+                <SortableHead col="status">Status</SortableHead>
+                <SortableHead col="faturamento_mensal">Faturamento</SortableHead>
+                <SortableHead col="oportunidade">Oportunidade</SortableHead>
+                <SortableHead col="data_proximo_contato">Próx. Contato</SortableHead>
+                <SortableHead col="mql" className="text-center">MQL</SortableHead>
+                <SortableHead col="sql_flag" className="text-center">SQL</SortableHead>
+                <SortableHead col="utm_source">Fonte</SortableHead>
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </div>
+            </TableHeader>
+            <TableBody>
+              {isLoading ? (
+                <TableRow><TableCell colSpan={9} className="text-center py-8 text-muted-foreground">Carregando…</TableCell></TableRow>
+              ) : paginated.length === 0 ? (
+                <TableRow><TableCell colSpan={9} className="text-center py-8 text-muted-foreground">Nenhum lead encontrado</TableCell></TableRow>
+              ) : paginated.map(lead => (
+                <TableRow key={lead.id} className="cursor-pointer hover:bg-muted/50" onClick={() => setSelectedLead(lead)}>
+                  <TableCell className="font-medium max-w-[200px] truncate">{lead.nome}</TableCell>
+                  <TableCell className="text-xs whitespace-nowrap">{formatDate(getEntrada(lead))}</TableCell>
+                  <TableCell><Badge variant="secondary" className="text-[10px] whitespace-nowrap">{getStageLabel(lead.status)}</Badge></TableCell>
+                  <TableCell className="text-xs">{lead.faturamento_mensal ?? '—'}</TableCell>
+                  <TableCell className="text-xs whitespace-nowrap">{formatCurrency(lead.oportunidade)}</TableCell>
+                  <TableCell className="text-xs whitespace-nowrap">{formatDate(lead.data_proximo_contato)}</TableCell>
+                  <TableCell className="text-center"><BoolIcon val={lead.mql} /></TableCell>
+                  <TableCell className="text-center"><BoolIcon val={lead.sql_flag} /></TableCell>
+                  <TableCell className="text-xs max-w-[120px] truncate">{lead.utm_source ?? '—'}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      )}
 
       {totalPages > 1 && (
         <div className="flex items-center justify-between">
