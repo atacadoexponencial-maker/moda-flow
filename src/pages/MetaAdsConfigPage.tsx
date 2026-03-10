@@ -1,37 +1,60 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowLeft, Save, Plug, RefreshCw, CheckCircle2, XCircle, Loader2 } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { ArrowLeft, Save, RefreshCw, Loader2, LogIn, LogOut, Link2 } from "lucide-react";
 import { toast } from "sonner";
-import { format } from "date-fns";
+import { format, differenceInDays } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
 const MetaAdsConfigPage = () => {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
 
   const [adAccountId, setAdAccountId] = useState("");
-  const [accessToken, setAccessToken] = useState("");
   const [ativo, setAtivo] = useState(false);
   const [tokenConfigurado, setTokenConfigurado] = useState(false);
+  const [metaUserName, setMetaUserName] = useState<string | null>(null);
+  const [tokenExpiresAt, setTokenExpiresAt] = useState<string | null>(null);
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [testing, setTesting] = useState(false);
   const [syncing, setSyncing] = useState(false);
+  const [connecting, setConnecting] = useState(false);
+  const [disconnecting, setDisconnecting] = useState(false);
 
-  const [testResult, setTestResult] = useState<{ success: boolean; name?: string; error?: string } | null>(null);
   const [lastSync, setLastSync] = useState<string | null>(null);
   const [syncedCount, setSyncedCount] = useState<number>(0);
+
+  useEffect(() => {
+    const metaParam = searchParams.get("meta");
+    if (metaParam === "conectado") {
+      toast.success("Conta Meta conectada com sucesso!");
+      setSearchParams({}, { replace: true });
+    } else if (metaParam === "erro") {
+      const msg = searchParams.get("msg") || "Erro ao conectar";
+      toast.error(`Falha na conexão: ${msg}`);
+      setSearchParams({}, { replace: true });
+    }
+  }, [searchParams, setSearchParams]);
 
   useEffect(() => {
     loadConfig();
     loadSyncInfo();
   }, []);
+
+  // Reload config after OAuth redirect
+  useEffect(() => {
+    const metaParam = searchParams.get("meta");
+    if (metaParam === "conectado") {
+      loadConfig();
+    }
+  }, [searchParams]);
 
   const loadConfig = async () => {
     try {
@@ -45,9 +68,11 @@ const MetaAdsConfigPage = () => {
         setAdAccountId((data as any).ad_account_id ?? "");
         setAtivo((data as any).ativo ?? false);
         setTokenConfigurado((data as any).token_configurado ?? false);
+        setMetaUserName((data as any).meta_user_name ?? null);
+        setTokenExpiresAt((data as any).token_expires_at ?? null);
       }
     } catch {
-      // No config yet — that's fine
+      // No config yet
     } finally {
       setLoading(false);
     }
@@ -71,26 +96,49 @@ const MetaAdsConfigPage = () => {
     }
   };
 
-  const handleSave = async () => {
-    setSaving(true);
+  const handleConnect = async () => {
+    setConnecting(true);
     try {
-      const body: Record<string, unknown> = {
-        ad_account_id: adAccountId,
-        ativo,
-      };
-      if (accessToken.trim()) {
-        body.access_token = accessToken;
+      const { data, error } = await supabase.functions.invoke("meta-oauth-start");
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      if (data?.url) {
+        window.location.href = data.url;
       }
+    } catch (err: any) {
+      toast.error(err.message || "Erro ao iniciar conexão");
+      setConnecting(false);
+    }
+  };
 
-      const { data, error } = await supabase.functions.invoke("meta-save-config", {
-        body,
-      });
-
+  const handleDisconnect = async () => {
+    setDisconnecting(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("meta-disconnect");
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
 
+      toast.success("Conta Meta desconectada");
+      setTokenConfigurado(false);
+      setMetaUserName(null);
+      setTokenExpiresAt(null);
+      await loadConfig();
+    } catch (err: any) {
+      toast.error(err.message || "Erro ao desconectar");
+    } finally {
+      setDisconnecting(false);
+    }
+  };
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("meta-save-config", {
+        body: { ad_account_id: adAccountId, ativo },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
       toast.success("Configuração salva com sucesso");
-      setAccessToken("");
       await loadConfig();
     } catch (err: any) {
       toast.error(err.message || "Erro ao salvar configuração");
@@ -99,36 +147,12 @@ const MetaAdsConfigPage = () => {
     }
   };
 
-  const handleTestConnection = async () => {
-    setTesting(true);
-    setTestResult(null);
-    try {
-      const { data, error } = await supabase.functions.invoke("meta-test-connection");
-
-      if (error) throw error;
-
-      setTestResult(data);
-      if (data?.success) {
-        toast.success(`Conectado como: ${data.name}`);
-      } else {
-        toast.error(data?.error || "Conexão falhou");
-      }
-    } catch (err: any) {
-      setTestResult({ success: false, error: err.message });
-      toast.error(err.message || "Erro ao testar conexão");
-    } finally {
-      setTesting(false);
-    }
-  };
-
   const handleSync = async () => {
     setSyncing(true);
     try {
       const { data, error } = await supabase.functions.invoke("meta-fetch-insights");
-
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
-
       toast.success(`${data.campaigns_synced} registros sincronizados`);
       await loadSyncInfo();
     } catch (err: any) {
@@ -137,6 +161,22 @@ const MetaAdsConfigPage = () => {
       setSyncing(false);
     }
   };
+
+  const getTokenStatus = () => {
+    if (!tokenExpiresAt) return null;
+    const expiresDate = new Date(tokenExpiresAt);
+    const daysLeft = differenceInDays(expiresDate, new Date());
+
+    if (daysLeft <= 0) {
+      return { label: "Token expirado", variant: "destructive" as const };
+    }
+    if (daysLeft <= 15) {
+      return { label: `Expira em ${daysLeft} dia${daysLeft !== 1 ? "s" : ""}`, variant: "warning" as const };
+    }
+    return { label: "Conectado", variant: "success" as const };
+  };
+
+  const tokenStatus = tokenConfigurado ? getTokenStatus() : null;
 
   if (loading) {
     return (
@@ -155,37 +195,87 @@ const MetaAdsConfigPage = () => {
         <div>
           <h2 className="text-2xl font-bold text-foreground">Integração Meta Ads</h2>
           <p className="text-muted-foreground text-sm mt-0.5">
-            Configure o acesso à API do Meta para sincronizar dados de investimento.
+            Conecte sua conta Meta Business para sincronizar dados de investimento.
           </p>
         </div>
       </div>
 
-      {/* Form */}
+      {/* Connection status */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Credenciais</CardTitle>
+          <CardTitle className="text-base">Conexão Meta Business</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {tokenConfigurado && metaUserName ? (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 rounded-full bg-[#1877F2] flex items-center justify-center">
+                    <Link2 className="h-5 w-5 text-white" />
+                  </div>
+                  <div>
+                    <p className="font-medium text-foreground">{metaUserName}</p>
+                    {tokenExpiresAt && (
+                      <p className="text-xs text-muted-foreground">
+                        Token válido até {format(new Date(tokenExpiresAt), "dd/MM/yyyy", { locale: ptBR })}
+                      </p>
+                    )}
+                  </div>
+                </div>
+                {tokenStatus && (
+                  <Badge
+                    variant={tokenStatus.variant === "success" ? "default" : tokenStatus.variant === "warning" ? "secondary" : "destructive"}
+                    className={
+                      tokenStatus.variant === "success"
+                        ? "bg-green-500/15 text-green-700 dark:text-green-400 border-green-500/30"
+                        : tokenStatus.variant === "warning"
+                          ? "bg-yellow-500/15 text-yellow-700 dark:text-yellow-400 border-yellow-500/30"
+                          : ""
+                    }
+                  >
+                    {tokenStatus.label}
+                  </Badge>
+                )}
+              </div>
+              <div className="flex gap-3">
+                <Button variant="outline" size="sm" onClick={handleConnect} disabled={connecting}>
+                  {connecting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <RefreshCw className="h-4 w-4 mr-2" />}
+                  Reconectar
+                </Button>
+                <Button variant="outline" size="sm" onClick={handleDisconnect} disabled={disconnecting} className="text-destructive hover:text-destructive">
+                  {disconnecting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <LogOut className="h-4 w-4 mr-2" />}
+                  Desconectar
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <div className="text-center py-4 space-y-3">
+              <p className="text-sm text-muted-foreground">
+                Conecte sua conta Meta Business para importar dados de campanhas automaticamente.
+              </p>
+              <Button
+                onClick={handleConnect}
+                disabled={connecting}
+                className="bg-[#1877F2] hover:bg-[#166FE5] text-white"
+              >
+                {connecting ? (
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                ) : (
+                  <LogIn className="h-4 w-4 mr-2" />
+                )}
+                Conectar com Meta Business
+              </Button>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Settings */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Configurações</CardTitle>
         </CardHeader>
         <CardContent className="space-y-5">
-          <div className="space-y-2">
-            <Label htmlFor="access_token">Access Token</Label>
-            <Input
-              id="access_token"
-              type="password"
-              value={accessToken}
-              onChange={(e) => setAccessToken(e.target.value)}
-              placeholder={
-                tokenConfigurado
-                  ? "•••••••• Token configurado"
-                  : "Cole o access token do Meta aqui"
-              }
-            />
-            {tokenConfigurado && (
-              <p className="text-xs text-muted-foreground">
-                Token já configurado. Deixe em branco para manter o atual.
-              </p>
-            )}
-          </div>
-
           <div className="space-y-2">
             <Label htmlFor="ad_account_id">Ad Account ID</Label>
             <Input
@@ -204,42 +294,12 @@ const MetaAdsConfigPage = () => {
             <Switch checked={ativo} onCheckedChange={setAtivo} />
           </div>
 
-          <div className="flex gap-3 pt-2">
+          <div className="pt-2">
             <Button onClick={handleSave} disabled={saving}>
               {saving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Save className="h-4 w-4 mr-2" />}
               Salvar
             </Button>
-            <Button variant="outline" onClick={handleTestConnection} disabled={testing || !tokenConfigurado}>
-              {testing ? (
-                <Loader2 className="h-4 w-4 animate-spin mr-2" />
-              ) : (
-                <Plug className="h-4 w-4 mr-2" />
-              )}
-              Testar conexão
-            </Button>
           </div>
-
-          {testResult && (
-            <div
-              className={`flex items-center gap-2 p-3 rounded-md text-sm ${
-                testResult.success
-                  ? "bg-green-500/10 text-green-700 dark:text-green-400"
-                  : "bg-destructive/10 text-destructive"
-              }`}
-            >
-              {testResult.success ? (
-                <>
-                  <CheckCircle2 className="h-4 w-4 shrink-0" />
-                  <span>Conectado como <strong>{testResult.name}</strong></span>
-                </>
-              ) : (
-                <>
-                  <XCircle className="h-4 w-4 shrink-0" />
-                  <span>{testResult.error}</span>
-                </>
-              )}
-            </div>
-          )}
         </CardContent>
       </Card>
 
@@ -265,7 +325,7 @@ const MetaAdsConfigPage = () => {
                 </p>
               )}
             </div>
-            <Button variant="outline" onClick={handleSync} disabled={syncing || !ativo}>
+            <Button variant="outline" onClick={handleSync} disabled={syncing || !ativo || !tokenConfigurado}>
               {syncing ? (
                 <Loader2 className="h-4 w-4 animate-spin mr-2" />
               ) : (

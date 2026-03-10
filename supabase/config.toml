@@ -8,3 +8,12 @@ verify_jwt = false
 
 [functions.meta-fetch-insights]
 verify_jwt = false
+
+[functions.meta-oauth-start]
+verify_jwt = false
+
+[functions.meta-oauth-callback]
+verify_jwt = false
+
+[functions.meta-disconnect]
+verify_jwt = false
