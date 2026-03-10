@@ -11,6 +11,7 @@ import {
   isInRange,
 } from "@/lib/dashboard-utils";
 import { ACTIVE_STAGES } from "@/lib/constants";
+import { FunnelChart } from "@/components/dashboard/FunnelChart";
 
 interface Lead {
   data_criada: string | null;
