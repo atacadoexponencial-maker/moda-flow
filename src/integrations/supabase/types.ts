@@ -161,7 +161,6 @@ export type Database = {
           fetched_at: string
           id: string
           impressions: number | null
-          leads: number | null
           spend: number | null
         }
         Insert: {
@@ -173,7 +172,6 @@ export type Database = {
           fetched_at?: string
           id?: string
           impressions?: number | null
-          leads?: number | null
           spend?: number | null
         }
         Update: {
@@ -185,7 +183,6 @@ export type Database = {
           fetched_at?: string
           id?: string
           impressions?: number | null
-          leads?: number | null
           spend?: number | null
         }
         Relationships: []
