@@ -40,6 +40,7 @@ function AuthenticatedRoutes() {
         <Route path="/dashboard" element={<DashboardPage />} />
         <Route path="/configuracoes" element={<ConfiguracoesPage />} />
         <Route path="/configuracoes/importar" element={<ImportLeadsPage />} />
+        <Route path="/configuracoes/meta-ads" element={<MetaAdsConfigPage />} />
       </Route>
       <Route path="*" element={<NotFound />} />
     </Routes>
