@@ -22,6 +22,7 @@ interface Lead {
   status: string;
   oportunidade: number | null;
   arrecadado: number | null;
+  utm_source: string | null;
 }
 
 function formatCurrency(value: number): string {
