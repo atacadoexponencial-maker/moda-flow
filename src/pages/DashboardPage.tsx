@@ -232,6 +232,15 @@ const DashboardPage = () => {
           })}
         />
       )}
+
+      {!loading && (
+        <LeadSourceChart
+          leads={leads.filter((l) => {
+            const { current } = getPeriodRange(period);
+            return isInRange(getLeadDate(l), current);
+          })}
+        />
+      )}
     </div>
   );
 };
