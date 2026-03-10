@@ -45,6 +45,17 @@ const ConfiguracoesPage = () => {
           <Button variant="outline" className="ml-auto" size="sm">Configurar</Button>
         </CardContent>
       </Card>
+
+      <Card className="cursor-pointer hover:border-primary/50 transition-colors" onClick={() => navigate("/configuracoes/usuarios")}>
+        <CardContent className="flex items-center gap-4 py-5">
+          <Users className="h-8 w-8 text-primary" />
+          <div>
+            <p className="font-medium text-foreground">Usuários</p>
+            <p className="text-sm text-muted-foreground">Gerencie usuários e permissões do sistema.</p>
+          </div>
+          <Button variant="outline" className="ml-auto" size="sm">Gerenciar</Button>
+        </CardContent>
+      </Card>
     </div>
   );
 };
