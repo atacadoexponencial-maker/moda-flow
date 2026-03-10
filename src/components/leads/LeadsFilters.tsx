@@ -16,15 +16,25 @@ export interface LeadsFilterState {
   sql: string;
   utmSource: string;
   faturamento: string;
+  produto: string;
+  funil: string;
   dateFrom: Date | undefined;
   dateTo: Date | undefined;
 }
+
+export const EMPTY_FILTERS: LeadsFilterState = {
+  search: '', status: 'all', mql: 'all', sql: 'all',
+  utmSource: 'all', faturamento: 'all', produto: 'all', funil: 'all',
+  dateFrom: undefined, dateTo: undefined,
+};
 
 interface Props {
   filters: LeadsFilterState;
   onChange: (f: LeadsFilterState) => void;
   utmSources: string[];
   faturamentos: string[];
+  produtos: string[];
+  funis: string[];
 }
 
 const DATE_SHORTCUTS = [
@@ -82,7 +92,7 @@ const DATE_SHORTCUTS = [
   },
 ];
 
-export function LeadsFilters({ filters, onChange, utmSources, faturamentos }: Props) {
+export function LeadsFilters({ filters, onChange, utmSources, faturamentos, produtos, funis }: Props) {
   const set = <K extends keyof LeadsFilterState>(key: K, val: LeadsFilterState[K]) =>
     onChange({ ...filters, [key]: val });
 
@@ -93,12 +103,10 @@ export function LeadsFilters({ filters, onChange, utmSources, faturamentos }: Pr
 
   const hasFilters = filters.status !== 'all' || filters.mql !== 'all' || filters.sql !== 'all'
     || filters.utmSource !== 'all' || filters.faturamento !== 'all'
+    || filters.produto !== 'all' || filters.funil !== 'all'
     || filters.dateFrom || filters.dateTo || filters.search;
 
-  const clearAll = () => onChange({
-    search: '', status: 'all', mql: 'all', sql: 'all',
-    utmSource: 'all', faturamento: 'all', dateFrom: undefined, dateTo: undefined,
-  });
+  const clearAll = () => onChange({ ...EMPTY_FILTERS });
 
   return (
     <div className="space-y-3">
@@ -115,6 +123,24 @@ export function LeadsFilters({ filters, onChange, utmSources, faturamentos }: Pr
             <SelectItem value="all">Todos os Status</SelectItem>
             {FUNNEL_STAGES.map(s => (
               <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Select value={filters.produto} onValueChange={v => set('produto', v)}>
+          <SelectTrigger className="w-36 h-9"><SelectValue placeholder="Produto" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todos Produtos</SelectItem>
+            {produtos.map(p => (
+              <SelectItem key={p} value={p}>{p}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Select value={filters.funil} onValueChange={v => set('funil', v)}>
+          <SelectTrigger className="w-44 h-9"><SelectValue placeholder="Funil" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todos os Funis</SelectItem>
+            {funis.map(f => (
+              <SelectItem key={f} value={f}>{f}</SelectItem>
             ))}
           </SelectContent>
         </Select>
