@@ -12,6 +12,7 @@ import {
 } from "@/lib/dashboard-utils";
 import { ACTIVE_STAGES } from "@/lib/constants";
 import { FunnelChart } from "@/components/dashboard/FunnelChart";
+import { LeadSourceChart } from "@/components/dashboard/LeadSourceChart";
 
 interface Lead {
   data_criada: string | null;
@@ -21,6 +22,7 @@ interface Lead {
   status: string;
   oportunidade: number | null;
   arrecadado: number | null;
+  utm_source: string | null;
 }
 
 function formatCurrency(value: number): string {
@@ -94,7 +96,7 @@ const DashboardPage = () => {
     const load = async () => {
       const { data } = await supabase
         .from("leads")
-        .select("data_criada, created_at, mql, sql_flag, status, oportunidade, arrecadado");
+        .select("data_criada, created_at, mql, sql_flag, status, oportunidade, arrecadado, utm_source");
       setLeads((data as Lead[]) || []);
       setLoading(false);
     };
@@ -224,6 +226,15 @@ const DashboardPage = () => {
 
       {!loading && (
         <FunnelChart
+          leads={leads.filter((l) => {
+            const { current } = getPeriodRange(period);
+            return isInRange(getLeadDate(l), current);
+          })}
+        />
+      )}
+
+      {!loading && (
+        <LeadSourceChart
           leads={leads.filter((l) => {
             const { current } = getPeriodRange(period);
             return isInRange(getLeadDate(l), current);
