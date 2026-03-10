@@ -151,9 +151,95 @@ export type Database = {
         }
         Relationships: []
       }
+      meta_ads_cache: {
+        Row: {
+          campaign_id: string | null
+          campaign_name: string | null
+          clicks: number | null
+          date_start: string | null
+          date_stop: string | null
+          fetched_at: string
+          id: string
+          impressions: number | null
+          leads: number | null
+          spend: number | null
+        }
+        Insert: {
+          campaign_id?: string | null
+          campaign_name?: string | null
+          clicks?: number | null
+          date_start?: string | null
+          date_stop?: string | null
+          fetched_at?: string
+          id?: string
+          impressions?: number | null
+          leads?: number | null
+          spend?: number | null
+        }
+        Update: {
+          campaign_id?: string | null
+          campaign_name?: string | null
+          clicks?: number | null
+          date_start?: string | null
+          date_stop?: string | null
+          fetched_at?: string
+          id?: string
+          impressions?: number | null
+          leads?: number | null
+          spend?: number | null
+        }
+        Relationships: []
+      }
+      meta_config: {
+        Row: {
+          ad_account_id: string | null
+          ativo: boolean
+          created_at: string
+          id: string
+          vault_secret_id: string | null
+        }
+        Insert: {
+          ad_account_id?: string | null
+          ativo?: boolean
+          created_at?: string
+          id?: string
+          vault_secret_id?: string | null
+        }
+        Update: {
+          ad_account_id?: string | null
+          ativo?: boolean
+          created_at?: string
+          id?: string
+          vault_secret_id?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
-      [_ in never]: never
+      meta_config_safe: {
+        Row: {
+          ad_account_id: string | null
+          ativo: boolean | null
+          created_at: string | null
+          id: string | null
+          token_configurado: boolean | null
+        }
+        Insert: {
+          ad_account_id?: string | null
+          ativo?: boolean | null
+          created_at?: string | null
+          id?: string | null
+          token_configurado?: never
+        }
+        Update: {
+          ad_account_id?: string | null
+          ativo?: boolean | null
+          created_at?: string | null
+          id?: string | null
+          token_configurado?: never
+        }
+        Relationships: []
+      }
     }
     Functions: {
       [_ in never]: never
