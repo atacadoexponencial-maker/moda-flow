@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { CalendarIcon, X } from 'lucide-react';
-import { format } from 'date-fns';
+import { format, subDays, startOfMonth, startOfWeek, endOfWeek, subMonths, startOfYear } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { FUNNEL_STAGES } from '@/lib/constants';
@@ -27,9 +27,69 @@ interface Props {
   faturamentos: string[];
 }
 
+const DATE_SHORTCUTS = [
+  {
+    label: 'Últimos 7 dias',
+    getRange: () => {
+      const today = new Date();
+      return { from: subDays(today, 7), to: subDays(today, 1) };
+    },
+  },
+  {
+    label: 'Últimos 30 dias',
+    getRange: () => {
+      const today = new Date();
+      return { from: subDays(today, 30), to: subDays(today, 1) };
+    },
+  },
+  {
+    label: 'Esta semana',
+    getRange: () => {
+      const today = new Date();
+      return { from: startOfWeek(today, { weekStartsOn: 1 }), to: today };
+    },
+  },
+  {
+    label: 'Semana passada',
+    getRange: () => {
+      const today = new Date();
+      const lastWeekStart = startOfWeek(subDays(today, 7), { weekStartsOn: 1 });
+      const lastWeekEnd = endOfWeek(subDays(today, 7), { weekStartsOn: 1 });
+      return { from: lastWeekStart, to: lastWeekEnd };
+    },
+  },
+  {
+    label: 'Este mês',
+    getRange: () => {
+      const today = new Date();
+      return { from: startOfMonth(today), to: today };
+    },
+  },
+  {
+    label: 'Mês passado',
+    getRange: () => {
+      const today = new Date();
+      const lastMonth = subMonths(today, 1);
+      return { from: startOfMonth(lastMonth), to: subDays(startOfMonth(today), 1) };
+    },
+  },
+  {
+    label: 'Este ano',
+    getRange: () => {
+      const today = new Date();
+      return { from: startOfYear(today), to: today };
+    },
+  },
+];
+
 export function LeadsFilters({ filters, onChange, utmSources, faturamentos }: Props) {
   const set = <K extends keyof LeadsFilterState>(key: K, val: LeadsFilterState[K]) =>
     onChange({ ...filters, [key]: val });
+
+  const applyShortcut = (shortcut: typeof DATE_SHORTCUTS[number]) => {
+    const { from, to } = shortcut.getRange();
+    onChange({ ...filters, dateFrom: from, dateTo: to });
+  };
 
   const hasFilters = filters.status !== 'all' || filters.mql !== 'all' || filters.sql !== 'all'
     || filters.utmSource !== 'all' || filters.faturamento !== 'all'
@@ -95,28 +155,43 @@ export function LeadsFilters({ filters, onChange, utmSources, faturamentos }: Pr
       </div>
       <div className="flex flex-wrap gap-2 items-center">
         <span className="text-xs text-muted-foreground">Entrada:</span>
-        <Popover>
-          <PopoverTrigger asChild>
-            <Button variant="outline" size="sm" className={cn('h-9 w-36 justify-start text-left font-normal', !filters.dateFrom && 'text-muted-foreground')}>
-              <CalendarIcon className="mr-2 h-3.5 w-3.5" />
-              {filters.dateFrom ? format(filters.dateFrom, 'dd/MM/yyyy') : 'De'}
+        <div className="flex gap-1 flex-wrap">
+          {DATE_SHORTCUTS.map(s => (
+            <Button
+              key={s.label}
+              variant="outline"
+              size="sm"
+              className="h-7 text-xs px-2.5"
+              onClick={() => applyShortcut(s)}
+            >
+              {s.label}
             </Button>
-          </PopoverTrigger>
-          <PopoverContent className="w-auto p-0" align="start">
-            <Calendar mode="single" selected={filters.dateFrom} onSelect={d => set('dateFrom', d)} locale={ptBR} className="p-3 pointer-events-auto" />
-          </PopoverContent>
-        </Popover>
-        <Popover>
-          <PopoverTrigger asChild>
-            <Button variant="outline" size="sm" className={cn('h-9 w-36 justify-start text-left font-normal', !filters.dateTo && 'text-muted-foreground')}>
-              <CalendarIcon className="mr-2 h-3.5 w-3.5" />
-              {filters.dateTo ? format(filters.dateTo, 'dd/MM/yyyy') : 'Até'}
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent className="w-auto p-0" align="start">
-            <Calendar mode="single" selected={filters.dateTo} onSelect={d => set('dateTo', d)} locale={ptBR} className="p-3 pointer-events-auto" />
-          </PopoverContent>
-        </Popover>
+          ))}
+        </div>
+        <div className="flex gap-2 items-center">
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="outline" size="sm" className={cn('h-9 w-36 justify-start text-left font-normal', !filters.dateFrom && 'text-muted-foreground')}>
+                <CalendarIcon className="mr-2 h-3.5 w-3.5" />
+                {filters.dateFrom ? format(filters.dateFrom, 'dd/MM/yyyy') : 'De'}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="start">
+              <Calendar mode="single" selected={filters.dateFrom} onSelect={d => set('dateFrom', d)} locale={ptBR} className="p-3 pointer-events-auto" />
+            </PopoverContent>
+          </Popover>
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="outline" size="sm" className={cn('h-9 w-36 justify-start text-left font-normal', !filters.dateTo && 'text-muted-foreground')}>
+                <CalendarIcon className="mr-2 h-3.5 w-3.5" />
+                {filters.dateTo ? format(filters.dateTo, 'dd/MM/yyyy') : 'Até'}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="start">
+              <Calendar mode="single" selected={filters.dateTo} onSelect={d => set('dateTo', d)} locale={ptBR} className="p-3 pointer-events-auto" />
+            </PopoverContent>
+          </Popover>
+        </div>
         {hasFilters && (
           <Button variant="ghost" size="sm" onClick={clearAll} className="h-9 text-xs">
             <X className="h-3 w-3 mr-1" />Limpar filtros
