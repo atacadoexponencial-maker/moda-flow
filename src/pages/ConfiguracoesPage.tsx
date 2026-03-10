@@ -34,6 +34,17 @@ const ConfiguracoesPage = () => {
           <Button variant="outline" className="ml-auto" size="sm">Configurar</Button>
         </CardContent>
       </Card>
+
+      <Card className="cursor-pointer hover:border-primary/50 transition-colors" onClick={() => navigate("/configuracoes/vincular-campanhas")}>
+        <CardContent className="flex items-center gap-4 py-5">
+          <Link2 className="h-8 w-8 text-primary" />
+          <div>
+            <p className="font-medium text-foreground">Vincular Campanhas Meta</p>
+            <p className="text-sm text-muted-foreground">Associe campanhas do Meta Ads aos funis do CRM para calcular CPL e ROAS.</p>
+          </div>
+          <Button variant="outline" className="ml-auto" size="sm">Configurar</Button>
+        </CardContent>
+      </Card>
     </div>
   );
 };
