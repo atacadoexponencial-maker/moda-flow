@@ -29,64 +29,29 @@ Deno.serve(async (req) => {
       global: { headers: { Authorization: authHeader } },
     });
     const token = authHeader.replace("Bearer ", "");
-    const { data: claimsData, error: claimsError } = await userClient.auth.getClaims(token);
-    if (claimsError || !claimsData?.claims) {
+    const { error: claimsError } = await userClient.auth.getClaims(token);
+    if (claimsError) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
         status: 401,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    const { access_token, ad_account_id, ativo } = await req.json();
+    const { ad_account_id, ativo } = await req.json();
 
-    // Use service role for vault + meta_config operations
     const adminClient = createClient(supabaseUrl, serviceRoleKey);
 
     // Check if config row exists
     const { data: existing } = await adminClient
       .from("meta_config")
-      .select("id, vault_secret_id")
+      .select("id")
       .limit(1)
       .single();
-
-    let vaultSecretId = existing?.vault_secret_id ?? null;
-
-    // If access_token provided, store/update in vault
-    if (access_token && access_token.trim() !== "") {
-      if (vaultSecretId) {
-        // Update existing vault secret
-        await adminClient.rpc("vault_update_secret", {
-          secret_id: vaultSecretId,
-          new_secret: access_token,
-          new_name: "meta_access_token",
-        });
-      } else {
-        // Create new vault secret
-        const { data: vaultData, error: vaultError } = await adminClient.rpc(
-          "vault_create_secret",
-          {
-            new_secret: access_token,
-            new_name: "meta_access_token",
-          }
-        );
-        if (vaultError) {
-          console.error("Vault error:", vaultError);
-          return new Response(
-            JSON.stringify({ error: "Falha ao salvar token no Vault" }),
-            { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-          );
-        }
-        vaultSecretId = vaultData;
-      }
-    }
 
     const configPayload: Record<string, unknown> = {
       ad_account_id: ad_account_id ?? null,
       ativo: ativo ?? false,
     };
-    if (vaultSecretId) {
-      configPayload.vault_secret_id = vaultSecretId;
-    }
 
     let result;
     if (existing) {
