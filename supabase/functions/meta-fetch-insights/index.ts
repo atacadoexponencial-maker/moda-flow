@@ -6,55 +6,6 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-async function maybeRenewToken(
-  adminClient: any,
-  config: any,
-  currentToken: string
-): Promise<string> {
-  if (!config.token_expires_at) return currentToken;
-
-  const expiresAt = new Date(config.token_expires_at).getTime();
-  const tenDaysMs = 10 * 24 * 60 * 60 * 1000;
-
-  if (expiresAt - Date.now() > tenDaysMs) return currentToken;
-
-  console.log("Token expiring soon, attempting renewal...");
-
-  const metaAppId = Deno.env.get("META_APP_ID");
-  const metaAppSecret = Deno.env.get("META_APP_SECRET");
-
-  if (!metaAppId || !metaAppSecret) {
-    console.warn("Cannot renew: META_APP_ID or META_APP_SECRET not set");
-    return currentToken;
-  }
-
-  const res = await fetch(
-    `https://graph.facebook.com/v19.0/oauth/access_token` +
-      `?grant_type=fb_exchange_token` +
-      `&client_id=${metaAppId}` +
-      `&client_secret=${metaAppSecret}` +
-      `&fb_exchange_token=${encodeURIComponent(currentToken)}`
-  );
-  const data = await res.json();
-
-  if (data.error || !data.access_token) {
-    console.error("Token renewal failed:", data.error);
-    return currentToken;
-  }
-
-  const newToken = data.access_token;
-  const expiresIn = data.expires_in || 5184000;
-
-  const newExpiresAt = new Date(Date.now() + expiresIn * 1000).toISOString();
-  await adminClient
-    .from("meta_config")
-    .update({ access_token: newToken, token_expires_at: newExpiresAt })
-    .eq("id", config.id);
-
-  console.log("Token renewed successfully, new expiry:", newExpiresAt);
-  return newToken;
-}
-
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -73,6 +24,7 @@ Deno.serve(async (req) => {
     const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
+    // Validate user
     const userClient = createClient(supabaseUrl, supabaseAnonKey, {
       global: { headers: { Authorization: authHeader } },
     });
@@ -86,16 +38,16 @@ Deno.serve(async (req) => {
 
     const adminClient = createClient(supabaseUrl, serviceRoleKey);
 
-    // Get config
+    // 1. Get config
     const { data: config } = await adminClient
       .from("meta_config")
-      .select("id, access_token, ad_account_id, ativo, token_expires_at")
+      .select("id, ad_account_id, ativo, token_expires_at")
       .limit(1)
       .single();
 
-    if (!config?.access_token || !config?.ad_account_id) {
+    if (!config?.ad_account_id) {
       return new Response(
-        JSON.stringify({ error: "Configuração incompleta. Configure o token e o Ad Account ID." }),
+        JSON.stringify({ error: "Configuração incompleta. Configure o Ad Account ID." }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -107,25 +59,97 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Auto-renew if expiring soon
-    const accessToken = await maybeRenewToken(adminClient, config, config.access_token);
+    // 2. Read access token from Vault
+    const { data: vaultRows, error: vaultError } = await adminClient.rpc("vault_read_secret_by_name", {
+      secret_name: "meta_access_token",
+    });
 
-    // Fetch insights from Meta — last 90 days
-    const today = new Date();
-    const since = new Date(today);
-    since.setDate(since.getDate() - 90);
+    // Fallback: try reading from decrypted_secrets directly via SQL function
+    let accessToken: string | null = null;
 
-    const sinceStr = since.toISOString().slice(0, 10);
-    const untilStr = today.toISOString().slice(0, 10);
+    if (vaultError || !vaultRows) {
+      // Try alternative: read from meta_config.access_token as fallback
+      const { data: configFull } = await adminClient
+        .from("meta_config")
+        .select("access_token")
+        .limit(1)
+        .single();
+      accessToken = configFull?.access_token || null;
+    } else {
+      accessToken = typeof vaultRows === "string" ? vaultRows : null;
+    }
 
-    const fields = "campaign_id,campaign_name,spend,impressions,clicks,actions";
-    const url = `https://graph.facebook.com/v21.0/${config.ad_account_id}/insights?fields=${fields}&time_range={"since":"${sinceStr}","until":"${untilStr}"}&time_increment=1&level=campaign&limit=500&access_token=${encodeURIComponent(accessToken)}`;
+    if (!accessToken) {
+      return new Response(
+        JSON.stringify({ error: "Token de acesso não encontrado. Conecte sua conta Meta." }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // 3. Check token expiration — renew if within 10 days
+    if (config.token_expires_at) {
+      const expiresAt = new Date(config.token_expires_at).getTime();
+      const tenDaysMs = 10 * 24 * 60 * 60 * 1000;
+
+      if (expiresAt - Date.now() <= tenDaysMs) {
+        console.log("Token expiring soon, attempting renewal...");
+
+        const metaAppId = Deno.env.get("META_APP_ID");
+        const metaAppSecret = Deno.env.get("META_APP_SECRET");
+
+        if (metaAppId && metaAppSecret) {
+          const renewRes = await fetch(
+            `https://graph.facebook.com/v19.0/oauth/access_token` +
+              `?grant_type=fb_exchange_token` +
+              `&client_id=${metaAppId}` +
+              `&client_secret=${metaAppSecret}` +
+              `&fb_exchange_token=${encodeURIComponent(accessToken)}`,
+            {
+              headers: { Authorization: `Bearer ${accessToken}` },
+            }
+          );
+          const renewData = await renewRes.json();
+
+          if (!renewData.error && renewData.access_token) {
+            accessToken = renewData.access_token;
+            const expiresIn = renewData.expires_in || 5184000; // 60 days default
+            const newExpiresAt = new Date(Date.now() + expiresIn * 1000).toISOString();
+
+            // Update Vault secret
+            await adminClient
+              .from("meta_config")
+              .update({
+                access_token: accessToken,
+                token_expires_at: newExpiresAt,
+              })
+              .eq("id", config.id);
+
+            console.log("Token renewed successfully, new expiry:", newExpiresAt);
+          } else {
+            console.error("Token renewal failed:", renewData.error);
+          }
+        } else {
+          console.warn("Cannot renew: META_APP_ID or META_APP_SECRET not set");
+        }
+      }
+    }
+
+    // 4. Fetch insights from Meta Marketing API — last 30 days
+    const fields = "campaign_id,campaign_name,spend,impressions,clicks";
+    const insightsUrl =
+      `https://graph.facebook.com/v19.0/${config.ad_account_id}/insights` +
+      `?fields=${fields}` +
+      `&date_preset=last_30d` +
+      `&level=campaign` +
+      `&limit=500`;
 
     let allRows: any[] = [];
-    let nextUrl: string | null = url;
+    let nextUrl: string | null = insightsUrl;
 
     while (nextUrl) {
-      const response = await fetch(nextUrl);
+      const response = await fetch(nextUrl, {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
       const json = await response.json();
 
       if (json.error) {
@@ -138,7 +162,6 @@ Deno.serve(async (req) => {
 
       if (json.data) {
         for (const row of json.data) {
-          const leadsAction = row.actions?.find((a: any) => a.action_type === "lead");
           allRows.push({
             date_start: row.date_start,
             date_stop: row.date_stop,
@@ -147,7 +170,6 @@ Deno.serve(async (req) => {
             spend: parseFloat(row.spend || "0"),
             impressions: parseInt(row.impressions || "0", 10),
             clicks: parseInt(row.clicks || "0", 10),
-            leads: leadsAction ? parseInt(leadsAction.value || "0", 10) : 0,
           });
         }
       }
@@ -155,8 +177,11 @@ Deno.serve(async (req) => {
       nextUrl = json.paging?.next ?? null;
     }
 
-    // Clear old cache and insert new data
-    await adminClient.from("meta_ads_cache").delete().neq("id", "00000000-0000-0000-0000-000000000000");
+    // 5. Clear old cache and insert new data
+    await adminClient
+      .from("meta_ads_cache")
+      .delete()
+      .neq("id", "00000000-0000-0000-0000-000000000000");
 
     if (allRows.length > 0) {
       for (let i = 0; i < allRows.length; i += 500) {
@@ -170,6 +195,7 @@ Deno.serve(async (req) => {
       }
     }
 
+    // 6. Return count
     return new Response(
       JSON.stringify({ success: true, campaigns_synced: allRows.length }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
