@@ -24,7 +24,6 @@ Deno.serve(async (req) => {
     const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
-    // Validate user
     const userClient = createClient(supabaseUrl, supabaseAnonKey, {
       global: { headers: { Authorization: authHeader } },
     });
@@ -38,10 +37,10 @@ Deno.serve(async (req) => {
 
     const adminClient = createClient(supabaseUrl, serviceRoleKey);
 
-    // 1. Get config
+    // 1. Get config with token
     const { data: config } = await adminClient
       .from("meta_config")
-      .select("id, ad_account_id, ativo, token_expires_at, vault_secret_id")
+      .select("id, access_token, ad_account_id, ativo, token_expires_at")
       .limit(1)
       .single();
 
@@ -59,21 +58,16 @@ Deno.serve(async (req) => {
       );
     }
 
-    // 2. Read access token exclusively from Vault
-    const { data: vaultToken, error: vaultError } = await adminClient.rpc("vault_read_secret_by_name", {
-      secret_name: "meta_access_token",
-    });
-
-    if (vaultError || !vaultToken) {
+    if (!config.access_token) {
       return new Response(
         JSON.stringify({ error: "Integração Meta não configurada. Reconecte em Configurações." }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    let accessToken: string = vaultToken;
+    let accessToken: string = config.access_token;
 
-    // 3. Check token expiration — renew if within 10 days
+    // 2. Check token expiration — renew if within 10 days
     if (config.token_expires_at) {
       const expiresAt = new Date(config.token_expires_at).getTime();
       const tenDaysMs = 10 * 24 * 60 * 60 * 1000;
@@ -102,19 +96,12 @@ Deno.serve(async (req) => {
             const expiresIn = renewData.expires_in || 5184000;
             const newExpiresAt = new Date(Date.now() + expiresIn * 1000).toISOString();
 
-            // Update token in Vault
-            if (config.vault_secret_id) {
-              await adminClient.rpc("vault_update_secret", {
-                secret_id: config.vault_secret_id,
-                new_secret: accessToken,
-                new_name: "meta_access_token",
-              });
-            }
-
-            // Update expiration in meta_config
             await adminClient
               .from("meta_config")
-              .update({ token_expires_at: newExpiresAt })
+              .update({
+                access_token: accessToken,
+                token_expires_at: newExpiresAt,
+              })
               .eq("id", config.id);
 
             console.log("Token renewed successfully, new expiry:", newExpiresAt);
@@ -127,7 +114,7 @@ Deno.serve(async (req) => {
       }
     }
 
-    // 4. Fetch insights from Meta Marketing API — last 30 days
+    // 3. Fetch insights from Meta Marketing API — last 30 days
     const fields = "campaign_id,campaign_name,spend,impressions,clicks";
     const insightsUrl =
       `https://graph.facebook.com/v19.0/${config.ad_account_id}/insights` +
@@ -170,7 +157,7 @@ Deno.serve(async (req) => {
       nextUrl = json.paging?.next ?? null;
     }
 
-    // 5. Clear old cache and insert new data
+    // 4. Clear old cache and insert new data
     await adminClient
       .from("meta_ads_cache")
       .delete()
@@ -188,7 +175,7 @@ Deno.serve(async (req) => {
       }
     }
 
-    // 6. Return count
+    // 5. Return count
     return new Response(
       JSON.stringify({ success: true, campaigns_synced: allRows.length }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
