@@ -49,6 +49,30 @@ export type Database = {
           },
         ]
       }
+      funnel_campaigns: {
+        Row: {
+          campaign_id: string
+          campaign_name: string
+          created_at: string | null
+          funil: string
+          id: string
+        }
+        Insert: {
+          campaign_id: string
+          campaign_name: string
+          created_at?: string | null
+          funil: string
+          id?: string
+        }
+        Update: {
+          campaign_id?: string
+          campaign_name?: string
+          created_at?: string | null
+          funil?: string
+          id?: string
+        }
+        Relationships: []
+      }
       leads: {
         Row: {
           arrecadado: number | null
