@@ -100,11 +100,52 @@ Deno.serve(async (req) => {
     // Calculate expiration date
     const tokenExpiresAt = new Date(Date.now() + expiresIn * 1000).toISOString();
 
-    // Store token directly in meta_config (protected by RLS + service role)
+    // Store token in Vault — check if secret already exists
+    const { data: existingSecret } = await adminClient.rpc("vault_read_secret_by_name", {
+      secret_name: "meta_access_token",
+    });
+
+    let vaultSecretId: string;
+
+    if (existingSecret) {
+      // Secret exists — update it. We need to find the ID first.
+      // Use a dedicated function or query vault.secrets via service role
+      const { data: secretRow } = await adminClient
+        .from("meta_config")
+        .select("vault_secret_id")
+        .limit(1)
+        .single();
+
+      if (secretRow?.vault_secret_id) {
+        // Update existing vault secret
+        await adminClient.rpc("vault_update_secret", {
+          secret_id: secretRow.vault_secret_id,
+          new_secret: longLivedToken,
+          new_name: "meta_access_token",
+        });
+        vaultSecretId = secretRow.vault_secret_id;
+      } else {
+        // Create new vault secret
+        const { data: newId } = await adminClient.rpc("vault_create_secret", {
+          new_secret: longLivedToken,
+          new_name: "meta_access_token",
+        });
+        vaultSecretId = newId;
+      }
+    } else {
+      // Create new vault secret
+      const { data: newId } = await adminClient.rpc("vault_create_secret", {
+        new_secret: longLivedToken,
+        new_name: "meta_access_token",
+      });
+      vaultSecretId = newId;
+    }
+
+    // Update meta_config with vault_secret_id and metadata (no token stored here)
     await adminClient
       .from("meta_config")
       .update({
-        access_token: longLivedToken,
+        vault_secret_id: vaultSecretId,
         token_expires_at: tokenExpiresAt,
         meta_user_name: metaUserName,
         oauth_state: null,

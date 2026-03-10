@@ -41,7 +41,7 @@ Deno.serve(async (req) => {
     // 1. Get config
     const { data: config } = await adminClient
       .from("meta_config")
-      .select("id, ad_account_id, ativo, token_expires_at")
+      .select("id, ad_account_id, ativo, token_expires_at, vault_secret_id")
       .limit(1)
       .single();
 
@@ -59,32 +59,19 @@ Deno.serve(async (req) => {
       );
     }
 
-    // 2. Read access token from Vault
-    const { data: vaultRows, error: vaultError } = await adminClient.rpc("vault_read_secret_by_name", {
+    // 2. Read access token exclusively from Vault
+    const { data: vaultToken, error: vaultError } = await adminClient.rpc("vault_read_secret_by_name", {
       secret_name: "meta_access_token",
     });
 
-    // Fallback: try reading from decrypted_secrets directly via SQL function
-    let accessToken: string | null = null;
-
-    if (vaultError || !vaultRows) {
-      // Try alternative: read from meta_config.access_token as fallback
-      const { data: configFull } = await adminClient
-        .from("meta_config")
-        .select("access_token")
-        .limit(1)
-        .single();
-      accessToken = configFull?.access_token || null;
-    } else {
-      accessToken = typeof vaultRows === "string" ? vaultRows : null;
-    }
-
-    if (!accessToken) {
+    if (vaultError || !vaultToken) {
       return new Response(
-        JSON.stringify({ error: "Token de acesso não encontrado. Conecte sua conta Meta." }),
+        JSON.stringify({ error: "Integração Meta não configurada. Reconecte em Configurações." }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
+
+    let accessToken: string = vaultToken;
 
     // 3. Check token expiration — renew if within 10 days
     if (config.token_expires_at) {
@@ -112,16 +99,22 @@ Deno.serve(async (req) => {
 
           if (!renewData.error && renewData.access_token) {
             accessToken = renewData.access_token;
-            const expiresIn = renewData.expires_in || 5184000; // 60 days default
+            const expiresIn = renewData.expires_in || 5184000;
             const newExpiresAt = new Date(Date.now() + expiresIn * 1000).toISOString();
 
-            // Update Vault secret
+            // Update token in Vault
+            if (config.vault_secret_id) {
+              await adminClient.rpc("vault_update_secret", {
+                secret_id: config.vault_secret_id,
+                new_secret: accessToken,
+                new_name: "meta_access_token",
+              });
+            }
+
+            // Update expiration in meta_config
             await adminClient
               .from("meta_config")
-              .update({
-                access_token: accessToken,
-                token_expires_at: newExpiresAt,
-              })
+              .update({ token_expires_at: newExpiresAt })
               .eq("id", config.id);
 
             console.log("Token renewed successfully, new expiry:", newExpiresAt);
