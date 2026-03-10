@@ -10,7 +10,8 @@ import { ptBR } from 'date-fns/locale';
 import { getStageLabel } from '@/lib/constants';
 import { LeadDetailPanel } from '@/components/pipeline/LeadDetailPanel';
 import { NewLeadDialog } from '@/components/leads/NewLeadDialog';
-import { LeadsFilters, type LeadsFilterState } from '@/components/leads/LeadsFilters';
+import { LeadsFilters, EMPTY_FILTERS, type LeadsFilterState } from '@/components/leads/LeadsFilters';
+import { useLeadsFilterOptions, applyLeadFilters } from '@/lib/leads-filter-utils';
 import type { Tables } from '@/integrations/supabase/types';
 
 type Lead = Tables<'leads'>;
@@ -40,10 +41,7 @@ function BoolIcon({ val }: { val: boolean | null }) {
 }
 
 export default function LeadsPage() {
-  const [filters, setFilters] = useState<LeadsFilterState>({
-    search: '', status: 'all', mql: 'all', sql: 'all',
-    utmSource: 'all', faturamento: 'all', dateFrom: undefined, dateTo: undefined,
-  });
+  const [filters, setFilters] = useState<LeadsFilterState>({ ...EMPTY_FILTERS });
   const [sortKey, setSortKey] = useState<SortKey>('entrada');
   const [sortDir, setSortDir] = useState<SortDir>('desc');
   const [page, setPage] = useState(0);
@@ -52,7 +50,6 @@ export default function LeadsPage() {
   const { data: allLeads = [], isLoading } = useQuery({
     queryKey: ['leads-table'],
     queryFn: async () => {
-      // Fetch all leads (handle >1000 rows)
       let all: Lead[] = [];
       let from = 0;
       const batchSize = 1000;
@@ -68,52 +65,10 @@ export default function LeadsPage() {
     },
   });
 
-  // Unique values for filter dropdowns
-  const utmSources = useMemo(() => {
-    const set = new Set<string>();
-    allLeads.forEach(l => { if (l.utm_source) set.add(l.utm_source); });
-    return Array.from(set).sort();
-  }, [allLeads]);
-
-  const faturamentos = useMemo(() => {
-    const order = [
-      'Menos de 20 Mil', 'De 20 a 30 Mil', 'De 30 a 40 Mil', 'De 40 a 75 Mil',
-      'De 75 a 100 Mil', 'De 100 a 150 Mil', 'De 150 a 200 Mil', 'De 200 a 300 Mil',
-      'De 300 a 500 Mil', 'Mais de 500 Mil',
-    ];
-    const set = new Set<string>();
-    allLeads.forEach(l => { if (l.faturamento_mensal) set.add(l.faturamento_mensal); });
-    return Array.from(set).sort((a, b) => {
-      const ia = order.indexOf(a);
-      const ib = order.indexOf(b);
-      return (ia === -1 ? 999 : ia) - (ib === -1 ? 999 : ib);
-    });
-  }, [allLeads]);
+  const { utmSources, faturamentos, produtos, funis } = useLeadsFilterOptions(allLeads);
 
   // Filter
-  const filtered = useMemo(() => {
-    return allLeads.filter(lead => {
-      if (filters.search) {
-        const q = filters.search.toLowerCase();
-        const matches = [lead.nome, lead.email, lead.whatsapp].some(f => f?.toLowerCase().includes(q));
-        if (!matches) return false;
-      }
-      if (filters.status !== 'all' && lead.status !== filters.status) return false;
-      if (filters.mql === 'true' && !lead.mql) return false;
-      if (filters.mql === 'false' && lead.mql) return false;
-      if (filters.sql === 'true' && !lead.sql_flag) return false;
-      if (filters.sql === 'false' && lead.sql_flag) return false;
-      if (filters.utmSource !== 'all' && lead.utm_source !== filters.utmSource) return false;
-      if (filters.faturamento !== 'all' && lead.faturamento_mensal !== filters.faturamento) return false;
-      if (filters.dateFrom || filters.dateTo) {
-        const entrada = getEntrada(lead);
-        if (!entrada) return false;
-        if (filters.dateFrom && entrada < format(filters.dateFrom, 'yyyy-MM-dd')) return false;
-        if (filters.dateTo && entrada > format(filters.dateTo, 'yyyy-MM-dd')) return false;
-      }
-      return true;
-    });
-  }, [allLeads, filters]);
+  const filtered = useMemo(() => applyLeadFilters(allLeads, filters), [allLeads, filters]);
 
   // Sort
   const sorted = useMemo(() => {
@@ -221,7 +176,14 @@ export default function LeadsPage() {
         </div>
       </div>
 
-      <LeadsFilters filters={filters} onChange={f => { setFilters(f); setPage(0); }} utmSources={utmSources} faturamentos={faturamentos} />
+      <LeadsFilters
+        filters={filters}
+        onChange={f => { setFilters(f); setPage(0); }}
+        utmSources={utmSources}
+        faturamentos={faturamentos}
+        produtos={produtos}
+        funis={funis}
+      />
 
       <div className="rounded-md border overflow-auto">
         <Table>
@@ -260,7 +222,6 @@ export default function LeadsPage() {
         </Table>
       </div>
 
-      {/* Pagination */}
       {totalPages > 1 && (
         <div className="flex items-center justify-between">
           <p className="text-xs text-muted-foreground">

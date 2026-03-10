@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
@@ -19,9 +19,10 @@ import {
   type DragEndEvent,
 } from '@dnd-kit/core';
 import { useDraggable, useDroppable } from '@dnd-kit/core';
-import { CSS } from '@dnd-kit/utilities';
 import { MoveDialog, type MoveDialogType } from '@/components/pipeline/MoveDialog';
 import { LeadDetailPanel } from '@/components/pipeline/LeadDetailPanel';
+import { LeadsFilters, EMPTY_FILTERS, type LeadsFilterState } from '@/components/leads/LeadsFilters';
+import { useLeadsFilterOptions, applyLeadFilters } from '@/lib/leads-filter-utils';
 
 type Lead = Tables<'leads'>;
 
@@ -68,7 +69,6 @@ function getDialogType(status: string): MoveDialogType | null {
   return null;
 }
 
-// Draggable card
 function DraggableLeadCard({ lead, onClick }: { lead: Lead; onClick: (lead: Lead) => void }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: lead.id });
   const style = {
@@ -103,7 +103,6 @@ function LeadCardContent({ lead }: { lead: Lead }) {
   );
 }
 
-// Droppable column
 function DroppableColumn({ stage, leads, isOver, onCardClick }: { stage: typeof COLUMN_ORDER[number]; leads: Lead[]; isOver: boolean; onCardClick: (lead: Lead) => void }) {
   const { setNodeRef } = useDroppable({ id: stage.value });
   const total = leads.length;
@@ -116,7 +115,7 @@ function DroppableColumn({ stage, leads, isOver, onCardClick }: { stage: typeof 
         <p className="text-xs mt-0.5 opacity-90">{total} lead{total !== 1 ? 's' : ''} · {formatCurrency(somaOp)}</p>
       </div>
       <div className={cn(
-        'flex-1 rounded-b-lg p-2 space-y-2 overflow-y-auto max-h-[calc(100vh-13rem)] transition-colors',
+        'flex-1 rounded-b-lg p-2 space-y-2 overflow-y-auto max-h-[calc(100vh-16rem)] transition-colors',
         isOver ? 'bg-accent/20 ring-2 ring-accent' : 'bg-muted/40'
       )}>
         {leads.map(lead => <DraggableLeadCard key={lead.id} lead={lead} onClick={onCardClick} />)}
@@ -134,20 +133,33 @@ export default function PipelinePage() {
   const queryClient = useQueryClient();
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
 
+  const [filters, setFilters] = useState<LeadsFilterState>({ ...EMPTY_FILTERS });
   const [activeLead, setActiveLead] = useState<Lead | null>(null);
   const [pendingMove, setPendingMove] = useState<{ lead: Lead; from: string; to: string } | null>(null);
   const [dialogType, setDialogType] = useState<MoveDialogType | null>(null);
   const [overColumn, setOverColumn] = useState<string | null>(null);
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
 
-  const { data: leads = [], isLoading } = useQuery({
+  const { data: allLeads = [], isLoading } = useQuery({
     queryKey: ['leads-pipeline'],
     queryFn: async () => {
-      const { data, error } = await supabase.from('leads').select('*');
-      if (error) throw error;
-      return data as Lead[];
+      let all: Lead[] = [];
+      let from = 0;
+      const batchSize = 1000;
+      while (true) {
+        const { data, error } = await supabase.from('leads').select('*').range(from, from + batchSize - 1);
+        if (error) throw error;
+        if (!data || data.length === 0) break;
+        all = all.concat(data);
+        if (data.length < batchSize) break;
+        from += batchSize;
+      }
+      return all;
     },
   });
+
+  const { utmSources, faturamentos, produtos, funis } = useLeadsFilterOptions(allLeads);
+  const leads = useMemo(() => applyLeadFilters(allLeads, filters), [allLeads, filters]);
 
   const moveMutation = useMutation({
     mutationFn: async ({ leadId, from, to, extra }: { leadId: string; from: string; to: string; extra?: Record<string, unknown> }) => {
@@ -227,6 +239,15 @@ export default function PipelinePage() {
         <h2 className="text-2xl font-bold text-foreground">Pipeline</h2>
         <p className="text-muted-foreground mt-1">Arraste os cards para mover leads entre etapas.</p>
       </div>
+
+      <LeadsFilters
+        filters={filters}
+        onChange={setFilters}
+        utmSources={utmSources}
+        faturamentos={faturamentos}
+        produtos={produtos}
+        funis={funis}
+      />
 
       {isLoading ? (
         <div className="flex gap-3 overflow-hidden">
