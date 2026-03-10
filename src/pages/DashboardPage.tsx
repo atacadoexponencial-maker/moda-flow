@@ -96,7 +96,7 @@ const DashboardPage = () => {
     const load = async () => {
       const { data } = await supabase
         .from("leads")
-        .select("data_criada, created_at, mql, sql_flag, status, oportunidade, arrecadado");
+        .select("data_criada, created_at, mql, sql_flag, status, oportunidade, arrecadado, utm_source");
       setLeads((data as Lead[]) || []);
       setLoading(false);
     };
