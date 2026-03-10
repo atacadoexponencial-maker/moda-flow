@@ -12,6 +12,7 @@ import {
 } from "@/lib/dashboard-utils";
 import { ACTIVE_STAGES } from "@/lib/constants";
 import { FunnelChart } from "@/components/dashboard/FunnelChart";
+import { LeadSourceChart } from "@/components/dashboard/LeadSourceChart";
 
 interface Lead {
   data_criada: string | null;
