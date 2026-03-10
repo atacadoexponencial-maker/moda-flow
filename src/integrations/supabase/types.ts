@@ -161,7 +161,6 @@ export type Database = {
           fetched_at: string
           id: string
           impressions: number | null
-          leads: number | null
           spend: number | null
         }
         Insert: {
@@ -173,7 +172,6 @@ export type Database = {
           fetched_at?: string
           id?: string
           impressions?: number | null
-          leads?: number | null
           spend?: number | null
         }
         Update: {
@@ -185,7 +183,6 @@ export type Database = {
           fetched_at?: string
           id?: string
           impressions?: number | null
-          leads?: number | null
           spend?: number | null
         }
         Relationships: []
@@ -265,6 +262,10 @@ export type Database = {
         Returns: string
       }
       vault_read_secret: { Args: { secret_id: string }; Returns: string }
+      vault_read_secret_by_name: {
+        Args: { secret_name: string }
+        Returns: string
+      }
       vault_update_secret: {
         Args: { new_name: string; new_secret: string; secret_id: string }
         Returns: undefined
