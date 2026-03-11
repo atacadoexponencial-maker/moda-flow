@@ -5,26 +5,36 @@ import { BarChart, Bar, XAxis, YAxis, Tooltip, Cell, ResponsiveContainer, LabelL
 interface Lead {
   mql: boolean | null;
   sql_flag: boolean | null;
+  ra_flag: boolean | null;
+  rr_flag: boolean | null;
   status: string;
+  funil: string | null;
 }
 
 interface FunnelChartProps {
   leads: Lead[];
+  funil?: string;
 }
 
 const STAGE_COLORS = [
-  "hsl(234, 60%, 28%)",   // primary
-  "hsl(250, 45%, 50%)",   // accent
+  "hsl(234, 60%, 28%)",
+  "hsl(250, 45%, 50%)",
   "hsl(234, 60%, 42%)",
-  "hsl(142, 60%, 40%)",   // success
+  "hsl(200, 55%, 45%)",
+  "hsl(180, 50%, 40%)",
+  "hsl(142, 60%, 40%)",
 ];
 
-export function FunnelChart({ leads }: FunnelChartProps) {
+export function FunnelChart({ leads, funil }: FunnelChartProps) {
   const data = useMemo(() => {
-    const total = leads.length;
-    const mql = leads.filter((l) => l.mql).length;
-    const sql = leads.filter((l) => l.mql && l.sql_flag).length;
-    const won = leads.filter((l) => l.mql && l.sql_flag && l.status === "contrato_assinado").length;
+    const filtered = funil && funil !== "all" ? leads.filter((l) => l.funil === funil) : leads;
+
+    const total = filtered.length;
+    const mql = filtered.filter((l) => l.mql).length;
+    const sql = filtered.filter((l) => l.sql_flag).length;
+    const ra = filtered.filter((l) => l.ra_flag).length;
+    const rr = filtered.filter((l) => l.rr_flag).length;
+    const won = filtered.filter((l) => l.status === "contrato_assinado").length;
 
     const convRate = (from: number, to: number) =>
       from > 0 ? `${((to / from) * 100).toFixed(1)}%` : "–";
@@ -33,9 +43,11 @@ export function FunnelChart({ leads }: FunnelChartProps) {
       { name: "Leads", value: total, rate: "" },
       { name: "MQL", value: mql, rate: convRate(total, mql) },
       { name: "SQL", value: sql, rate: convRate(mql, sql) },
-      { name: "Ganho", value: won, rate: convRate(sql, won) },
+      { name: "RA", value: ra, rate: convRate(sql, ra) },
+      { name: "RR", value: rr, rate: convRate(ra, rr) },
+      { name: "Venda", value: won, rate: convRate(rr, won) },
     ];
-  }, [leads]);
+  }, [leads, funil]);
 
   const maxValue = Math.max(...data.map((d) => d.value), 1);
 
@@ -45,12 +57,12 @@ export function FunnelChart({ leads }: FunnelChartProps) {
         <CardTitle className="text-base">Funil de Conversão</CardTitle>
       </CardHeader>
       <CardContent>
-        <ResponsiveContainer width="100%" height={220}>
+        <ResponsiveContainer width="100%" height={300}>
           <BarChart
             data={data}
             layout="vertical"
             margin={{ top: 5, right: 80, left: 10, bottom: 5 }}
-            barCategoryGap="28%"
+            barCategoryGap="20%"
           >
             <XAxis type="number" hide domain={[0, maxValue]} />
             <YAxis
@@ -84,7 +96,7 @@ export function FunnelChart({ leads }: FunnelChartProps) {
         </ResponsiveContainer>
 
         {/* Conversion rates */}
-        <div className="flex items-center justify-center gap-6 mt-2 text-xs text-muted-foreground">
+        <div className="flex items-center justify-center gap-4 mt-2 text-xs text-muted-foreground flex-wrap">
           {data.slice(1).map((d, i) => (
             <span key={d.name} className="flex items-center gap-1">
               <span className="font-medium text-foreground">{d.rate}</span>
