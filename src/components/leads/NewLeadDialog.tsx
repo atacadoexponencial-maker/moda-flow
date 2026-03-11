@@ -115,11 +115,28 @@ export function NewLeadDialog() {
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label>Faturamento Mensal</Label>
-              <Input value={form.faturamento_mensal} onChange={e => set('faturamento_mensal', e.target.value)} placeholder="Ex: Menos de 20 Mil" />
+              <Select value={form.faturamento_mensal} onValueChange={v => set('faturamento_mensal', v)}>
+                <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                <SelectContent>
+                  {FATURAMENTO_OPTIONS.map(opt => (
+                    <SelectItem key={opt} value={opt}>{opt}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-1.5">
               <Label>Oportunidade (R$)</Label>
               <Input type="number" value={form.oportunidade || ''} onChange={e => set('oportunidade', Number(e.target.value))} placeholder="0" />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="flex items-center space-x-2">
+              <Checkbox id="mql" checked={form.mql} onCheckedChange={v => setForm(prev => ({ ...prev, mql: !!v }))} />
+              <Label htmlFor="mql">MQL</Label>
+            </div>
+            <div className="flex items-center space-x-2">
+              <Checkbox id="sql_flag" checked={form.sql_flag} onCheckedChange={v => setForm(prev => ({ ...prev, sql_flag: !!v }))} />
+              <Label htmlFor="sql_flag">SQL</Label>
             </div>
           </div>
           <div className="flex justify-end gap-2 pt-2">
