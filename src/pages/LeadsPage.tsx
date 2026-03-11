@@ -56,7 +56,7 @@ function BoolIcon({ val }: { val: boolean | null }) {
 }
 
 /* ── Editable Cell ── */
-type EditableField = 'nome' | 'faturamento_mensal' | 'oportunidade';
+type EditableField = 'nome' | 'faturamento_mensal' | 'oportunidade' | 'status';
 
 function EditableCell({
   value,
