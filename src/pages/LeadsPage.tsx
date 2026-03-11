@@ -396,7 +396,9 @@ export default function LeadsPage() {
                     <EditableCell value={lead.nome} leadId={lead.id} field="nome" onSave={handleInlineSave} />
                   </TableCell>
                   <TableCell className="text-xs whitespace-nowrap">{formatDate(getEntrada(lead))}</TableCell>
-                  <TableCell><Badge variant="secondary" className="text-[10px] whitespace-nowrap">{getStageLabel(lead.status)}</Badge></TableCell>
+                  <TableCell>
+                    <EditableCell value={lead.status} leadId={lead.id} field="status" onSave={handleInlineSave} />
+                  </TableCell>
                   <TableCell className="text-xs">
                     <EditableCell value={lead.faturamento_mensal} leadId={lead.id} field="faturamento_mensal" onSave={handleInlineSave} />
                   </TableCell>
