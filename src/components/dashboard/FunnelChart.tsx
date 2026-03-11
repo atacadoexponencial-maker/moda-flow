@@ -14,6 +14,11 @@ interface Lead {
 interface FunnelChartProps {
   leads: Lead[];
   funil?: string;
+  investimento?: number;
+}
+
+function fmtCurrency(v: number): string {
+  return v.toLocaleString("pt-BR", { style: "currency", currency: "BRL", minimumFractionDigits: 0, maximumFractionDigits: 0 });
 }
 
 const STAGE_COLORS = [
@@ -25,7 +30,7 @@ const STAGE_COLORS = [
   "hsl(142, 60%, 40%)",
 ];
 
-export function FunnelChart({ leads, funil }: FunnelChartProps) {
+export function FunnelChart({ leads, funil, investimento }: FunnelChartProps) {
   const data = useMemo(() => {
     const filtered = funil && funil !== "all" ? leads.filter((l) => l.funil === funil) : leads;
 
@@ -50,11 +55,19 @@ export function FunnelChart({ leads, funil }: FunnelChartProps) {
   }, [leads, funil]);
 
   const maxValue = Math.max(...data.map((d) => d.value), 1);
+  const inv = investimento ?? 0;
 
   return (
     <Card>
       <CardHeader className="pb-2">
-        <CardTitle className="text-base">Funil de Conversão</CardTitle>
+        <div className="flex items-center justify-between">
+          <CardTitle className="text-base">Funil de Conversão</CardTitle>
+          {inv > 0 && (
+            <span className="text-sm font-medium text-muted-foreground">
+              Investimento: {fmtCurrency(inv)}
+            </span>
+          )}
+        </div>
       </CardHeader>
       <CardContent>
         <ResponsiveContainer width="100%" height={300}>
@@ -106,6 +119,22 @@ export function FunnelChart({ leads, funil }: FunnelChartProps) {
             </span>
           ))}
         </div>
+
+        {/* CPL per stage */}
+        {inv > 0 && (
+          <div className="flex items-center justify-center gap-4 mt-2 text-xs text-muted-foreground flex-wrap">
+            {data.map((d) => (
+              d.value > 0 ? (
+                <span key={d.name} className="flex items-center gap-1">
+                  <span className="font-medium text-foreground">
+                    {fmtCurrency(inv / d.value)}
+                  </span>
+                  <span>CPL {d.name}</span>
+                </span>
+              ) : null
+            ))}
+          </div>
+        )}
       </CardContent>
     </Card>
   );
