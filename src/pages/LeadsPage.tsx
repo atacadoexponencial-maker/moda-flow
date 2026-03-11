@@ -118,7 +118,9 @@ function EditableCell({
   if (editing) {
     const cls = `w-full h-7 px-1.5 text-xs rounded border bg-background outline-none focus:ring-1 focus:ring-ring ${saving ? 'cursor-wait border-primary' : 'border-input'}`;
 
-    if (field === 'faturamento_mensal') {
+    if (field === 'faturamento_mensal' || field === 'status') {
+      const options = field === 'faturamento_mensal' ? FATURAMENTO_OPTIONS : FUNNEL_STAGES.map(s => s.value);
+      const getLabel = (v: string) => field === 'status' ? getStageLabel(v) : v;
       return (
         <div onClick={e => e.stopPropagation()}>
           <select
@@ -130,9 +132,10 @@ function EditableCell({
             onKeyDown={handleKeyDown}
             disabled={saving}
           >
-            <option value="">—</option>
-            {FATURAMENTO_OPTIONS.map(opt => (
-              <option key={opt} value={opt}>{opt}</option>
+            {field === 'faturamento_mensal' && <option value="">—</option>}
+            {options.map(opt => (
+              <option key={opt} value={opt}>{getLabel(opt)}</option>
+            ))}
             ))}
           </select>
         </div>
