@@ -4,11 +4,20 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Plus } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useQueryClient } from '@tanstack/react-query';
 import { FUNNEL_STAGES } from '@/lib/constants';
+
+const FATURAMENTO_OPTIONS = [
+  'Menos de R$ 20 mil',
+  'R$ 20 mil – R$ 50 mil',
+  'R$ 50 mil – R$ 100 mil',
+  'R$ 100 mil – R$ 300 mil',
+  'Acima de R$ 300 mil',
+];
 
 export function NewLeadDialog() {
   const queryClient = useQueryClient();
