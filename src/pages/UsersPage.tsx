@@ -2,12 +2,13 @@ import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
 import { ArrowLeft, Loader2, UserPlus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
@@ -20,6 +21,12 @@ interface UserItem {
   role: string | null;
 }
 
+const ROLE_LABELS: Record<string, string> = {
+  proprietário: "Proprietário",
+  admin: "Admin",
+  vendedor: "Vendedor",
+};
+
 const UsersPage = () => {
   const navigate = useNavigate();
   const [users, setUsers] = useState<UserItem[]>([]);
@@ -28,12 +35,14 @@ const UsersPage = () => {
   const [inviting, setInviting] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [myRole, setMyRole] = useState<string | null>(null);
 
   const loadUsers = useCallback(async () => {
     try {
-      const [usersRes, rolesRes] = await Promise.all([
+      const [usersRes, rolesRes, authRes] = await Promise.all([
         supabase.functions.invoke("manage-users", { body: { action: "list" } }),
         supabase.from("user_roles" as any).select("user_id, role"),
+        supabase.auth.getUser(),
       ]);
 
       if (usersRes.error) throw usersRes.error;
@@ -42,6 +51,12 @@ const UsersPage = () => {
       const rolesMap = new Map<string, string>();
       for (const r of (rolesRes.data as any[]) || []) {
         rolesMap.set(r.user_id, r.role);
+      }
+
+      // Set current user's role
+      const currentUserId = authRes.data?.user?.id;
+      if (currentUserId) {
+        setMyRole(rolesMap.get(currentUserId) ?? null);
       }
 
       const merged: UserItem[] = (usersRes.data.users || []).map((u: any) => ({
@@ -84,7 +99,6 @@ const UsersPage = () => {
 
   const handleRoleChange = async (userId: string, newRole: string) => {
     try {
-      // Upsert role
       const existing = users.find((u) => u.id === userId);
       if (existing?.role) {
         await supabase
@@ -109,7 +123,6 @@ const UsersPage = () => {
   const handleDelete = async (userId: string) => {
     setDeletingId(userId);
     try {
-      // Delete role first
       await supabase.from("user_roles" as any).delete().eq("user_id", userId);
 
       const { data, error } = await supabase.functions.invoke("manage-users", {
@@ -127,6 +140,8 @@ const UsersPage = () => {
     }
   };
 
+  const isOwner = myRole === "proprietário";
+
   return (
     <div className="space-y-6 max-w-4xl">
       <div className="flex items-center gap-3">
@@ -139,39 +154,41 @@ const UsersPage = () => {
             Gerencie os usuários e suas permissões.
           </p>
         </div>
-        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-          <DialogTrigger asChild>
-            <Button size="sm">
-              <UserPlus className="h-4 w-4 mr-2" />
-              Convidar usuário
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Convidar usuário</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-3 py-2">
-              <Label htmlFor="invite-email">Email</Label>
-              <Input
-                id="invite-email"
-                type="email"
-                placeholder="usuario@empresa.com"
-                value={inviteEmail}
-                onChange={(e) => setInviteEmail(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && handleInvite()}
-              />
-            </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setDialogOpen(false)}>
-                Cancelar
+        {isOwner && (
+          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+            <DialogTrigger asChild>
+              <Button size="sm">
+                <UserPlus className="h-4 w-4 mr-2" />
+                Convidar usuário
               </Button>
-              <Button onClick={handleInvite} disabled={inviting || !inviteEmail.trim()}>
-                {inviting && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
-                Enviar convite
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Convidar usuário</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-3 py-2">
+                <Label htmlFor="invite-email">Email</Label>
+                <Input
+                  id="invite-email"
+                  type="email"
+                  placeholder="usuario@empresa.com"
+                  value={inviteEmail}
+                  onChange={(e) => setInviteEmail(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && handleInvite()}
+                />
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setDialogOpen(false)}>
+                  Cancelar
+                </Button>
+                <Button onClick={handleInvite} disabled={inviting || !inviteEmail.trim()}>
+                  {inviting && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+                  Enviar convite
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        )}
       </div>
 
       <Card>
@@ -195,43 +212,57 @@ const UsersPage = () => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {users.map((user) => (
-                  <TableRow key={user.id}>
-                    <TableCell className="font-medium">{user.email}</TableCell>
-                    <TableCell>
-                      <Select
-                        value={user.role || ""}
-                        onValueChange={(v) => handleRoleChange(user.id, v)}
-                      >
-                        <SelectTrigger className="w-[140px] h-8">
-                          <SelectValue placeholder="Sem role" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="admin">Admin</SelectItem>
-                          <SelectItem value="vendedor">Vendedor</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {format(new Date(user.created_at), "dd/MM/yyyy", { locale: ptBR })}
-                    </TableCell>
-                    <TableCell>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                        onClick={() => handleDelete(user.id)}
-                        disabled={deletingId === user.id}
-                      >
-                        {deletingId === user.id ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
+                {users.map((user) => {
+                  const isProprietario = user.role === "proprietário";
+                  const canEditRole = isOwner && !isProprietario;
+
+                  return (
+                    <TableRow key={user.id}>
+                      <TableCell className="font-medium">{user.email}</TableCell>
+                      <TableCell>
+                        {canEditRole ? (
+                          <Select
+                            value={user.role || ""}
+                            onValueChange={(v) => handleRoleChange(user.id, v)}
+                          >
+                            <SelectTrigger className="w-[140px] h-8">
+                              <SelectValue placeholder="Sem role" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="proprietário">Proprietário</SelectItem>
+                              <SelectItem value="admin">Admin</SelectItem>
+                              <SelectItem value="vendedor">Vendedor</SelectItem>
+                            </SelectContent>
+                          </Select>
                         ) : (
-                          <Trash2 className="h-4 w-4" />
+                          <Badge variant="secondary">
+                            {ROLE_LABELS[user.role ?? ""] ?? user.role ?? "Sem role"}
+                          </Badge>
                         )}
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
+                      </TableCell>
+                      <TableCell className="text-muted-foreground">
+                        {format(new Date(user.created_at), "dd/MM/yyyy", { locale: ptBR })}
+                      </TableCell>
+                      <TableCell>
+                        {isOwner && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                            onClick={() => handleDelete(user.id)}
+                            disabled={deletingId === user.id || isProprietario}
+                          >
+                            {deletingId === user.id ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <Trash2 className="h-4 w-4" />
+                            )}
+                          </Button>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
               </TableBody>
             </Table>
           )}
