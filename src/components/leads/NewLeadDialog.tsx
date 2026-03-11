@@ -4,11 +4,20 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Plus } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useQueryClient } from '@tanstack/react-query';
 import { FUNNEL_STAGES } from '@/lib/constants';
+
+const FATURAMENTO_OPTIONS = [
+  'Menos de R$ 20 mil',
+  'R$ 20 mil – R$ 50 mil',
+  'R$ 50 mil – R$ 100 mil',
+  'R$ 100 mil – R$ 300 mil',
+  'Acima de R$ 300 mil',
+];
 
 export function NewLeadDialog() {
   const queryClient = useQueryClient();
@@ -22,6 +31,8 @@ export function NewLeadDialog() {
     status: 'leads_entrada',
     faturamento_mensal: '',
     oportunidade: 0,
+    mql: false,
+    sql_flag: false,
   });
 
   const set = (key: string, val: string | number) => setForm(prev => ({ ...prev, [key]: val }));
@@ -41,6 +52,8 @@ export function NewLeadDialog() {
       status: form.status,
       faturamento_mensal: form.faturamento_mensal || null,
       oportunidade: form.oportunidade || 0,
+      mql: form.mql,
+      sql_flag: form.sql_flag,
       data_criada: today,
     });
     setSaving(false);
@@ -50,7 +63,7 @@ export function NewLeadDialog() {
     }
     toast.success('Lead criado com sucesso');
     setOpen(false);
-    setForm({ nome: '', email: '', whatsapp: '', instagram: '', status: 'leads_entrada', faturamento_mensal: '', oportunidade: 0 });
+    setForm({ nome: '', email: '', whatsapp: '', instagram: '', status: 'leads_entrada', faturamento_mensal: '', oportunidade: 0, mql: false, sql_flag: false });
     queryClient.invalidateQueries({ queryKey: ['leads-table'] });
     queryClient.invalidateQueries({ queryKey: ['leads-pipeline'] });
   };
@@ -102,11 +115,28 @@ export function NewLeadDialog() {
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label>Faturamento Mensal</Label>
-              <Input value={form.faturamento_mensal} onChange={e => set('faturamento_mensal', e.target.value)} placeholder="Ex: Menos de 20 Mil" />
+              <Select value={form.faturamento_mensal} onValueChange={v => set('faturamento_mensal', v)}>
+                <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                <SelectContent>
+                  {FATURAMENTO_OPTIONS.map(opt => (
+                    <SelectItem key={opt} value={opt}>{opt}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-1.5">
               <Label>Oportunidade (R$)</Label>
               <Input type="number" value={form.oportunidade || ''} onChange={e => set('oportunidade', Number(e.target.value))} placeholder="0" />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="flex items-center space-x-2">
+              <Checkbox id="mql" checked={form.mql} onCheckedChange={v => setForm(prev => ({ ...prev, mql: !!v }))} />
+              <Label htmlFor="mql">MQL</Label>
+            </div>
+            <div className="flex items-center space-x-2">
+              <Checkbox id="sql_flag" checked={form.sql_flag} onCheckedChange={v => setForm(prev => ({ ...prev, sql_flag: !!v }))} />
+              <Label htmlFor="sql_flag">SQL</Label>
             </div>
           </div>
           <div className="flex justify-end gap-2 pt-2">
