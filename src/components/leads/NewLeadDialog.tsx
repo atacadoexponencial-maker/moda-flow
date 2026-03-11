@@ -63,7 +63,7 @@ export function NewLeadDialog() {
     }
     toast.success('Lead criado com sucesso');
     setOpen(false);
-    setForm({ nome: '', email: '', whatsapp: '', instagram: '', status: 'leads_entrada', faturamento_mensal: '', oportunidade: 0 });
+    setForm({ nome: '', email: '', whatsapp: '', instagram: '', status: 'leads_entrada', faturamento_mensal: '', oportunidade: 0, mql: false, sql_flag: false });
     queryClient.invalidateQueries({ queryKey: ['leads-table'] });
     queryClient.invalidateQueries({ queryKey: ['leads-pipeline'] });
   };
