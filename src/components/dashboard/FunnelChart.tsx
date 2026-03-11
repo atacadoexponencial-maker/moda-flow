@@ -1,6 +1,5 @@
 import { useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { BarChart, Bar, XAxis, YAxis, Tooltip, Cell, ResponsiveContainer, LabelList } from "recharts";
 
 interface Lead {
   mql: boolean | null;
@@ -22,12 +21,12 @@ function fmtCurrency(v: number): string {
 }
 
 const STAGE_COLORS = [
-  "hsl(234, 60%, 28%)",
-  "hsl(250, 45%, 50%)",
-  "hsl(234, 60%, 42%)",
-  "hsl(200, 55%, 45%)",
-  "hsl(180, 50%, 40%)",
-  "hsl(142, 60%, 40%)",
+  "#1e3a8a",
+  "#3730a3",
+  "#4338ca",
+  "#0369a1",
+  "#0891b2",
+  "#059669",
 ];
 
 export function FunnelChart({ leads, funil, investimento }: FunnelChartProps) {
@@ -57,6 +56,8 @@ export function FunnelChart({ leads, funil, investimento }: FunnelChartProps) {
   const maxValue = Math.max(...data.map((d) => d.value), 1);
   const inv = investimento ?? 0;
 
+  const MIN_WIDTH = 28;
+
   return (
     <Card>
       <CardHeader className="pb-2">
@@ -70,60 +71,56 @@ export function FunnelChart({ leads, funil, investimento }: FunnelChartProps) {
         </div>
       </CardHeader>
       <CardContent>
-        <ResponsiveContainer width="100%" height={300}>
-          <BarChart
-            data={data}
-            layout="vertical"
-            margin={{ top: 5, right: 80, left: 10, bottom: 5 }}
-            barCategoryGap="20%"
-          >
-            <XAxis type="number" hide domain={[0, maxValue]} />
-            <YAxis
-              type="category"
-              dataKey="name"
-              axisLine={false}
-              tickLine={false}
-              width={50}
-              tick={{ fontSize: 13, fill: "hsl(220, 15%, 46%)" }}
-            />
-            <Tooltip
-              formatter={(value: number) => [value.toLocaleString("pt-BR"), "Leads"]}
-              contentStyle={{
-                borderRadius: "8px",
-                border: "1px solid hsl(220, 20%, 88%)",
-                fontSize: "13px",
-              }}
-            />
-            <Bar dataKey="value" radius={[0, 6, 6, 0]} maxBarSize={36}>
-              {data.map((_, i) => (
-                <Cell key={i} fill={STAGE_COLORS[i]} />
-              ))}
-              <LabelList
-                dataKey="value"
-                position="right"
-                formatter={(v: number) => v.toLocaleString("pt-BR")}
-                style={{ fontSize: 13, fontWeight: 600, fill: "hsl(224, 50%, 10%)" }}
-              />
-            </Bar>
-          </BarChart>
-        </ResponsiveContainer>
+        <div className="flex flex-col items-center gap-0 py-2">
+          {data.map((stage, i) => {
+            const widthPct = Math.max((stage.value / maxValue) * 100, MIN_WIDTH);
+            const isLast = i === data.length - 1;
 
-        {/* Conversion rates */}
-        <div className="flex items-center justify-center gap-4 mt-2 text-xs text-muted-foreground flex-wrap">
-          {data.slice(1).map((d, i) => (
-            <span key={d.name} className="flex items-center gap-1">
-              <span className="font-medium text-foreground">{d.rate}</span>
-              <span>
-                {data[i].name} → {d.name}
-              </span>
-            </span>
-          ))}
+            return (
+              <div key={stage.name} className="w-full flex flex-col items-center">
+                {/* Funnel bar */}
+                <div
+                  className="flex items-center justify-between px-3 h-10 rounded transition-all duration-300"
+                  style={{
+                    width: `${widthPct}%`,
+                    backgroundColor: STAGE_COLORS[i],
+                    minWidth: 120,
+                  }}
+                >
+                  <span className="text-white font-semibold text-sm truncate">
+                    {stage.name}
+                  </span>
+                  <span className="text-white font-bold text-sm ml-2 shrink-0">
+                    {stage.value.toLocaleString("pt-BR")}
+                  </span>
+                </div>
+
+                {/* Arrow + conversion rate between stages */}
+                {!isLast && (
+                  <div className="flex flex-col items-center my-0.5">
+                    <svg width="20" height="14" viewBox="0 0 20 14" fill="none">
+                      <path
+                        d="M10 14L0 0H20L10 14Z"
+                        fill={STAGE_COLORS[i]}
+                        opacity={0.35}
+                      />
+                    </svg>
+                    {data[i + 1].rate !== "" && (
+                      <span className="text-xs font-medium text-muted-foreground -mt-0.5">
+                        {data[i + 1].rate}
+                      </span>
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
 
         {/* CPL per stage */}
         {inv > 0 && (
-          <div className="flex items-center justify-center gap-4 mt-2 text-xs text-muted-foreground flex-wrap">
-            {data.map((d) => (
+          <div className="flex items-center justify-center gap-4 mt-3 text-xs text-muted-foreground flex-wrap border-t pt-3">
+            {data.map((d) =>
               d.value > 0 ? (
                 <span key={d.name} className="flex items-center gap-1">
                   <span className="font-medium text-foreground">
@@ -132,7 +129,7 @@ export function FunnelChart({ leads, funil, investimento }: FunnelChartProps) {
                   <span>CPL {d.name}</span>
                 </span>
               ) : null
-            ))}
+            )}
           </div>
         )}
       </CardContent>
