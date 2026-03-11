@@ -31,6 +31,8 @@ export function NewLeadDialog() {
     status: 'leads_entrada',
     faturamento_mensal: '',
     oportunidade: 0,
+    mql: false,
+    sql_flag: false,
   });
 
   const set = (key: string, val: string | number) => setForm(prev => ({ ...prev, [key]: val }));
