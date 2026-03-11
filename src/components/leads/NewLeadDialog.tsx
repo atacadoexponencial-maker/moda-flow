@@ -12,11 +12,16 @@ import { useQueryClient } from '@tanstack/react-query';
 import { FUNNEL_STAGES } from '@/lib/constants';
 
 const FATURAMENTO_OPTIONS = [
-  'Menos de R$ 20 mil',
-  'R$ 20 mil – R$ 50 mil',
-  'R$ 50 mil – R$ 100 mil',
-  'R$ 100 mil – R$ 300 mil',
-  'Acima de R$ 300 mil',
+  'Menos de 20 Mil',
+  'De 20 a 30 Mil',
+  'De 30 a 40 Mil',
+  'De 40 a 75 Mil',
+  'De 75 a 100 Mil',
+  'De 100 a 150 Mil',
+  'De 150 a 200 Mil',
+  'De 200 a 300 Mil',
+  'De 300 a 500 Mil',
+  'Mais de 500 Mil',
 ];
 
 export function NewLeadDialog() {
