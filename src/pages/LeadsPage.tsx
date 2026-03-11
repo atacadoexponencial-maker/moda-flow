@@ -8,7 +8,7 @@ import { Card } from '@/components/ui/card';
 import { ChevronUp, ChevronDown, ChevronsUpDown, Check, X as XIcon, Download } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { getStageLabel } from '@/lib/constants';
+import { FUNNEL_STAGES, getStageLabel } from '@/lib/constants';
 import { LeadDetailPanel } from '@/components/pipeline/LeadDetailPanel';
 import { NewLeadDialog } from '@/components/leads/NewLeadDialog';
 import { LeadsFilters, EMPTY_FILTERS, type LeadsFilterState } from '@/components/leads/LeadsFilters';
