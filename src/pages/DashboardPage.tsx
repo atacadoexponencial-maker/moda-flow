@@ -1,11 +1,12 @@
 import { useState, useEffect, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Button } from "@/components/ui/button";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { TrendingUp, TrendingDown, Minus, Users, Target, CheckCircle2, Handshake, DollarSign, Trophy } from "lucide-react";
 import {
   PeriodKey,
-  PERIOD_OPTIONS,
   getPeriodRange,
   getLeadDate,
   isInRange,
@@ -19,10 +20,13 @@ interface Lead {
   created_at: string;
   mql: boolean | null;
   sql_flag: boolean | null;
+  ra_flag: boolean | null;
+  rr_flag: boolean | null;
   status: string;
   oportunidade: number | null;
   arrecadado: number | null;
   utm_source: string | null;
+  funil: string | null;
 }
 
 function formatCurrency(value: number): string {
@@ -87,8 +91,16 @@ function computeChange(current: number, previous: number): number | null {
   return ((current - previous) / previous) * 100;
 }
 
+const PERIOD_BUTTONS: { key: PeriodKey; label: string }[] = [
+  { key: "7d", label: "7 dias" },
+  { key: "30d", label: "30 dias" },
+  { key: "month", label: "Este mês" },
+  { key: "90d", label: "90 dias" },
+];
+
 const DashboardPage = () => {
   const [period, setPeriod] = useState<PeriodKey>("30d");
+  const [selectedFunil, setSelectedFunil] = useState<string>("all");
   const [leads, setLeads] = useState<Lead[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -96,12 +108,22 @@ const DashboardPage = () => {
     const load = async () => {
       const { data } = await supabase
         .from("leads")
-        .select("data_criada, created_at, mql, sql_flag, status, oportunidade, arrecadado, utm_source");
+        .select("data_criada, created_at, mql, sql_flag, ra_flag, rr_flag, status, oportunidade, arrecadado, utm_source, funil");
       setLeads((data as Lead[]) || []);
       setLoading(false);
     };
     load();
   }, []);
+
+  const funilOptions = useMemo(() => {
+    const unique = [...new Set(leads.map((l) => l.funil).filter(Boolean))] as string[];
+    return unique.sort();
+  }, [leads]);
+
+  const currentLeadsForCharts = useMemo(() => {
+    const { current } = getPeriodRange(period);
+    return leads.filter((l) => isInRange(getLeadDate(l), current));
+  }, [leads, period]);
 
   const kpis = useMemo(() => {
     const { current, previous } = getPeriodRange(period);
@@ -109,34 +131,28 @@ const DashboardPage = () => {
     const currentLeads = leads.filter((l) => isInRange(getLeadDate(l), current));
     const previousLeads = leads.filter((l) => isInRange(getLeadDate(l), previous));
 
-    // Total Leads
     const totalCurrent = currentLeads.length;
     const totalPrevious = previousLeads.length;
 
-    // MQL rate
     const mqlCurrent = currentLeads.filter((l) => l.mql).length;
     const mqlPrevious = previousLeads.filter((l) => l.mql).length;
     const mqlRateCurrent = totalCurrent > 0 ? (mqlCurrent / totalCurrent) * 100 : 0;
     const mqlRatePrevious = totalPrevious > 0 ? (mqlPrevious / totalPrevious) * 100 : 0;
 
-    // SQL rate (of MQL)
     const sqlCurrent = currentLeads.filter((l) => l.mql && l.sql_flag).length;
     const sqlPrevious = previousLeads.filter((l) => l.mql && l.sql_flag).length;
     const sqlRateCurrent = mqlCurrent > 0 ? (sqlCurrent / mqlCurrent) * 100 : 0;
     const sqlRatePrevious = mqlPrevious > 0 ? (sqlPrevious / mqlPrevious) * 100 : 0;
 
-    // Close rate (of SQL)
     const closedCurrent = currentLeads.filter((l) => l.mql && l.sql_flag && l.status === "contrato_assinado").length;
     const closedPrevious = previousLeads.filter((l) => l.mql && l.sql_flag && l.status === "contrato_assinado").length;
     const closeRateCurrent = sqlCurrent > 0 ? (closedCurrent / sqlCurrent) * 100 : 0;
     const closeRatePrevious = sqlPrevious > 0 ? (closedPrevious / sqlPrevious) * 100 : 0;
 
-    // Pipeline (active stages only — no period filter, just active leads)
     const activeStagesSet = new Set(ACTIVE_STAGES as readonly string[]);
     const pipelineLeads = leads.filter((l) => activeStagesSet.has(l.status));
     const pipelineTotal = pipelineLeads.reduce((sum, l) => sum + (l.oportunidade || 0), 0);
 
-    // Arrecadado (contrato_assinado within period)
     const arrecadadoCurrent = currentLeads
       .filter((l) => l.status === "contrato_assinado")
       .reduce((sum, l) => sum + (l.arrecadado || 0), 0);
@@ -154,25 +170,61 @@ const DashboardPage = () => {
     };
   }, [leads, period]);
 
+  /* Consolidated table by funil */
+  const consolidatedData = useMemo(() => {
+    if (selectedFunil !== "all") return [];
+    const byFunil = new Map<string, Lead[]>();
+    for (const l of currentLeadsForCharts) {
+      const key = l.funil || "Sem funil";
+      if (!byFunil.has(key)) byFunil.set(key, []);
+      byFunil.get(key)!.push(l);
+    }
+    return [...byFunil.entries()]
+      .map(([funil, fLeads]) => {
+        const total = fLeads.length;
+        const mql = fLeads.filter((l) => l.mql).length;
+        const sql = fLeads.filter((l) => l.sql_flag).length;
+        const ra = fLeads.filter((l) => l.ra_flag).length;
+        const rr = fLeads.filter((l) => l.rr_flag).length;
+        const venda = fLeads.filter((l) => l.status === "contrato_assinado").length;
+        const taxa = total > 0 ? ((venda / total) * 100).toFixed(1) : "0.0";
+        return { funil, total, mql, sql, ra, rr, venda, taxa };
+      })
+      .sort((a, b) => b.total - a.total);
+  }, [currentLeadsForCharts, selectedFunil]);
+
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h2 className="text-2xl font-bold text-foreground">Dashboard</h2>
           <p className="text-muted-foreground mt-1 text-sm">KPIs de vendas e marketing.</p>
         </div>
-        <Select value={period} onValueChange={(v) => setPeriod(v as PeriodKey)}>
-          <SelectTrigger className="w-[180px]">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {PERIOD_OPTIONS.map((o) => (
-              <SelectItem key={o.value} value={o.value}>
-                {o.label}
-              </SelectItem>
+        <div className="flex items-center gap-3 flex-wrap">
+          <div className="flex gap-1">
+            {PERIOD_BUTTONS.map((p) => (
+              <Button
+                key={p.key}
+                variant={period === p.key ? "default" : "outline"}
+                size="sm"
+                onClick={() => setPeriod(p.key)}
+              >
+                {p.label}
+              </Button>
             ))}
-          </SelectContent>
-        </Select>
+          </div>
+          <Select value={selectedFunil} onValueChange={setSelectedFunil}>
+            <SelectTrigger className="w-[180px] h-9">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos os funis</SelectItem>
+              {funilOptions.map((f) => (
+                <SelectItem key={f} value={f}>{f}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
       {loading ? (
@@ -225,21 +277,51 @@ const DashboardPage = () => {
       )}
 
       {!loading && (
-        <FunnelChart
-          leads={leads.filter((l) => {
-            const { current } = getPeriodRange(period);
-            return isInRange(getLeadDate(l), current);
-          })}
-        />
+        <FunnelChart leads={currentLeadsForCharts} funil={selectedFunil} />
+      )}
+
+      {!loading && selectedFunil === "all" && consolidatedData.length > 0 && (
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base">Consolidado por Funil</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="rounded-md border overflow-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="text-xs">Funil</TableHead>
+                    <TableHead className="text-xs text-center">Leads</TableHead>
+                    <TableHead className="text-xs text-center">MQL</TableHead>
+                    <TableHead className="text-xs text-center">SQL</TableHead>
+                    <TableHead className="text-xs text-center">RA</TableHead>
+                    <TableHead className="text-xs text-center">RR</TableHead>
+                    <TableHead className="text-xs text-center">Venda</TableHead>
+                    <TableHead className="text-xs text-center">Taxa</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {consolidatedData.map((row) => (
+                    <TableRow key={row.funil}>
+                      <TableCell className="text-xs font-medium">{row.funil}</TableCell>
+                      <TableCell className="text-xs text-center">{row.total}</TableCell>
+                      <TableCell className="text-xs text-center">{row.mql}</TableCell>
+                      <TableCell className="text-xs text-center">{row.sql}</TableCell>
+                      <TableCell className="text-xs text-center">{row.ra}</TableCell>
+                      <TableCell className="text-xs text-center">{row.rr}</TableCell>
+                      <TableCell className="text-xs text-center">{row.venda}</TableCell>
+                      <TableCell className="text-xs text-center">{row.taxa}%</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          </CardContent>
+        </Card>
       )}
 
       {!loading && (
-        <LeadSourceChart
-          leads={leads.filter((l) => {
-            const { current } = getPeriodRange(period);
-            return isInRange(getLeadDate(l), current);
-          })}
-        />
+        <LeadSourceChart leads={currentLeadsForCharts} />
       )}
     </div>
   );
