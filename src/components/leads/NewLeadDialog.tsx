@@ -52,6 +52,8 @@ export function NewLeadDialog() {
       status: form.status,
       faturamento_mensal: form.faturamento_mensal || null,
       oportunidade: form.oportunidade || 0,
+      mql: form.mql,
+      sql_flag: form.sql_flag,
       data_criada: today,
     });
     setSaving(false);
