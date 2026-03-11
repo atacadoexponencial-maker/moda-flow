@@ -8,7 +8,7 @@ import { Card } from '@/components/ui/card';
 import { ChevronUp, ChevronDown, ChevronsUpDown, Check, X as XIcon, Download } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { getStageLabel } from '@/lib/constants';
+import { FUNNEL_STAGES, getStageLabel } from '@/lib/constants';
 import { LeadDetailPanel } from '@/components/pipeline/LeadDetailPanel';
 import { NewLeadDialog } from '@/components/leads/NewLeadDialog';
 import { LeadsFilters, EMPTY_FILTERS, type LeadsFilterState } from '@/components/leads/LeadsFilters';
@@ -56,7 +56,7 @@ function BoolIcon({ val }: { val: boolean | null }) {
 }
 
 /* ── Editable Cell ── */
-type EditableField = 'nome' | 'faturamento_mensal' | 'oportunidade';
+type EditableField = 'nome' | 'faturamento_mensal' | 'oportunidade' | 'status';
 
 function EditableCell({
   value,
@@ -118,7 +118,9 @@ function EditableCell({
   if (editing) {
     const cls = `w-full h-7 px-1.5 text-xs rounded border bg-background outline-none focus:ring-1 focus:ring-ring ${saving ? 'cursor-wait border-primary' : 'border-input'}`;
 
-    if (field === 'faturamento_mensal') {
+    if (field === 'faturamento_mensal' || field === 'status') {
+      const options = field === 'faturamento_mensal' ? FATURAMENTO_OPTIONS : FUNNEL_STAGES.map(s => s.value);
+      const getLabel = (v: string) => field === 'status' ? getStageLabel(v) : v;
       return (
         <div onClick={e => e.stopPropagation()}>
           <select
@@ -130,9 +132,9 @@ function EditableCell({
             onKeyDown={handleKeyDown}
             disabled={saving}
           >
-            <option value="">—</option>
-            {FATURAMENTO_OPTIONS.map(opt => (
-              <option key={opt} value={opt}>{opt}</option>
+            {field === 'faturamento_mensal' && <option value="">—</option>}
+            {options.map(opt => (
+              <option key={opt} value={opt}>{getLabel(opt)}</option>
             ))}
           </select>
         </div>
@@ -159,6 +161,8 @@ function EditableCell({
   let display: React.ReactNode;
   if (field === 'oportunidade') {
     display = formatCurrency(typeof value === 'number' ? value : null);
+  } else if (field === 'status') {
+    display = <Badge variant="secondary" className="text-[10px] whitespace-nowrap">{getStageLabel((value as string) ?? '')}</Badge>;
   } else if (field === 'faturamento_mensal') {
     display = (value as string) ?? '—';
   } else {
@@ -393,7 +397,9 @@ export default function LeadsPage() {
                     <EditableCell value={lead.nome} leadId={lead.id} field="nome" onSave={handleInlineSave} />
                   </TableCell>
                   <TableCell className="text-xs whitespace-nowrap">{formatDate(getEntrada(lead))}</TableCell>
-                  <TableCell><Badge variant="secondary" className="text-[10px] whitespace-nowrap">{getStageLabel(lead.status)}</Badge></TableCell>
+                  <TableCell>
+                    <EditableCell value={lead.status} leadId={lead.id} field="status" onSave={handleInlineSave} />
+                  </TableCell>
                   <TableCell className="text-xs">
                     <EditableCell value={lead.faturamento_mensal} leadId={lead.id} field="faturamento_mensal" onSave={handleInlineSave} />
                   </TableCell>
