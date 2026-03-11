@@ -136,7 +136,6 @@ function EditableCell({
             {options.map(opt => (
               <option key={opt} value={opt}>{getLabel(opt)}</option>
             ))}
-            ))}
           </select>
         </div>
       );
