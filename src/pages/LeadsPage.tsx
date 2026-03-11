@@ -161,6 +161,8 @@ function EditableCell({
   let display: React.ReactNode;
   if (field === 'oportunidade') {
     display = formatCurrency(typeof value === 'number' ? value : null);
+  } else if (field === 'status') {
+    display = <Badge variant="secondary" className="text-[10px] whitespace-nowrap">{getStageLabel((value as string) ?? '')}</Badge>;
   } else if (field === 'faturamento_mensal') {
     display = (value as string) ?? '—';
   } else {
