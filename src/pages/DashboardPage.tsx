@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { TrendingUp, TrendingDown, Minus, Users, Target, CheckCircle2, Handshake, DollarSign, Trophy } from "lucide-react";
+import { TrendingUp, TrendingDown, Minus, Users, Target, CheckCircle2, Handshake, DollarSign, Trophy, Megaphone } from "lucide-react";
 import {
   PeriodKey,
   getPeriodRange,
@@ -14,6 +14,7 @@ import {
 import { ACTIVE_STAGES } from "@/lib/constants";
 import { FunnelChart } from "@/components/dashboard/FunnelChart";
 import { LeadSourceChart } from "@/components/dashboard/LeadSourceChart";
+import { format } from "date-fns";
 
 interface Lead {
   data_criada: string | null;
@@ -27,6 +28,18 @@ interface Lead {
   arrecadado: number | null;
   utm_source: string | null;
   funil: string | null;
+}
+
+interface FunnelCampaign {
+  funil: string;
+  campaign_id: string;
+}
+
+interface MetaAdsRow {
+  campaign_id: string | null;
+  spend: number | null;
+  date_start: string | null;
+  date_stop: string | null;
 }
 
 function formatCurrency(value: number): string {
@@ -51,7 +64,7 @@ function KpiCard({ title, value, change, icon }: KpiCardProps) {
   const isNeutral = change === null || change === 0;
 
   return (
-    <Card className="flex-1 min-w-[160px]">
+    <Card className="flex-1 min-w-[140px]">
       <CardContent className="pt-5 pb-4 px-5">
         <div className="flex items-center justify-between mb-3">
           <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
@@ -98,18 +111,56 @@ const PERIOD_BUTTONS: { key: PeriodKey; label: string }[] = [
   { key: "90d", label: "90 dias" },
 ];
 
+function calcSpendForRange(
+  metaRows: MetaAdsRow[],
+  funnelCampaigns: FunnelCampaign[],
+  rangeFrom: Date,
+  rangeTo: Date,
+  funil: string,
+) {
+  const fmtDate = (d: Date) => format(d, "yyyy-MM-dd");
+  const from = fmtDate(rangeFrom);
+  const to = fmtDate(rangeTo);
+
+  // Get relevant campaign IDs
+  let campaignIds: Set<string>;
+  if (funil === "all") {
+    campaignIds = new Set(funnelCampaigns.map((fc) => fc.campaign_id));
+  } else {
+    campaignIds = new Set(
+      funnelCampaigns.filter((fc) => fc.funil === funil).map((fc) => fc.campaign_id)
+    );
+  }
+
+  return metaRows
+    .filter((r) => {
+      if (!r.campaign_id || !r.date_start || !r.date_stop) return false;
+      if (!campaignIds.has(r.campaign_id)) return false;
+      return r.date_start <= to && r.date_stop >= from;
+    })
+    .reduce((sum, r) => sum + (r.spend || 0), 0);
+}
+
 const DashboardPage = () => {
   const [period, setPeriod] = useState<PeriodKey>("30d");
   const [selectedFunil, setSelectedFunil] = useState<string>("all");
   const [leads, setLeads] = useState<Lead[]>([]);
+  const [funnelCampaigns, setFunnelCampaigns] = useState<FunnelCampaign[]>([]);
+  const [metaAds, setMetaAds] = useState<MetaAdsRow[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const load = async () => {
-      const { data } = await supabase
-        .from("leads")
-        .select("data_criada, created_at, mql, sql_flag, ra_flag, rr_flag, status, oportunidade, arrecadado, utm_source, funil");
-      setLeads((data as Lead[]) || []);
+      const [leadsRes, fcRes, metaRes] = await Promise.all([
+        supabase
+          .from("leads")
+          .select("data_criada, created_at, mql, sql_flag, ra_flag, rr_flag, status, oportunidade, arrecadado, utm_source, funil"),
+        supabase.from("funnel_campaigns").select("funil, campaign_id"),
+        supabase.from("meta_ads_cache").select("campaign_id, spend, date_start, date_stop"),
+      ]);
+      setLeads((leadsRes.data as Lead[]) || []);
+      setFunnelCampaigns((fcRes.data as FunnelCampaign[]) || []);
+      setMetaAds((metaRes.data as MetaAdsRow[]) || []);
       setLoading(false);
     };
     load();
@@ -124,6 +175,16 @@ const DashboardPage = () => {
     const { current } = getPeriodRange(period);
     return leads.filter((l) => isInRange(getLeadDate(l), current));
   }, [leads, period]);
+
+  const investimento = useMemo(() => {
+    const { current } = getPeriodRange(period);
+    return calcSpendForRange(metaAds, funnelCampaigns, current.from, current.to, selectedFunil);
+  }, [metaAds, funnelCampaigns, period, selectedFunil]);
+
+  const investimentoPrevious = useMemo(() => {
+    const { previous } = getPeriodRange(period);
+    return calcSpendForRange(metaAds, funnelCampaigns, previous.from, previous.to, selectedFunil);
+  }, [metaAds, funnelCampaigns, period, selectedFunil]);
 
   const kpis = useMemo(() => {
     const { current, previous } = getPeriodRange(period);
@@ -228,15 +289,15 @@ const DashboardPage = () => {
       </div>
 
       {loading ? (
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-          {Array.from({ length: 6 }).map((_, i) => (
-            <Card key={i} className="flex-1 min-w-[160px] animate-pulse">
+        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
+          {Array.from({ length: 7 }).map((_, i) => (
+            <Card key={i} className="flex-1 min-w-[140px] animate-pulse">
               <CardContent className="pt-5 pb-4 px-5 h-[120px]" />
             </Card>
           ))}
         </div>
       ) : (
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
           <KpiCard
             title="Total Leads"
             value={kpis.totalLeads.value.toLocaleString("pt-BR")}
@@ -273,11 +334,17 @@ const DashboardPage = () => {
             change={kpis.arrecadado.change}
             icon={<Trophy className="h-4 w-4 text-primary" />}
           />
+          <KpiCard
+            title="Investimento"
+            value={formatCurrency(investimento)}
+            change={computeChange(investimento, investimentoPrevious)}
+            icon={<Megaphone className="h-4 w-4 text-primary" />}
+          />
         </div>
       )}
 
       {!loading && (
-        <FunnelChart leads={currentLeadsForCharts} funil={selectedFunil} />
+        <FunnelChart leads={currentLeadsForCharts} funil={selectedFunil} investimento={investimento} />
       )}
 
       {!loading && selectedFunil === "all" && consolidatedData.length > 0 && (
