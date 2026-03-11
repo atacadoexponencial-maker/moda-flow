@@ -1,5 +1,5 @@
-import { useState, useMemo } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useState, useMemo, useRef, useEffect } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
@@ -22,6 +22,19 @@ type SortDir = 'asc' | 'desc';
 
 const PER_PAGE = 20;
 
+const FATURAMENTO_OPTIONS = [
+  'Menos de 20 Mil',
+  'De 20 a 30 Mil',
+  'De 30 a 40 Mil',
+  'De 40 a 75 Mil',
+  'De 75 a 100 Mil',
+  'De 100 a 150 Mil',
+  'De 150 a 200 Mil',
+  'De 200 a 300 Mil',
+  'De 300 a 500 Mil',
+  'Mais de 500 Mil',
+];
+
 function getEntrada(lead: Lead): string {
   return (lead as any).data_criada ?? lead.created_at?.slice(0, 10) ?? '';
 }
@@ -40,6 +53,127 @@ function BoolIcon({ val }: { val: boolean | null }) {
   return val
     ? <Check className="h-4 w-4 text-accent-foreground" />
     : <XIcon className="h-3.5 w-3.5 text-muted-foreground/40" />;
+}
+
+/* ── Editable Cell ── */
+type EditableField = 'nome' | 'faturamento_mensal' | 'oportunidade';
+
+function EditableCell({
+  value,
+  leadId,
+  field,
+  onSave,
+}: {
+  value: string | number | null;
+  leadId: string;
+  field: EditableField;
+  onSave: (leadId: string, field: EditableField, newValue: string | number | null) => Promise<void>;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(String(value ?? ''));
+  const [saving, setSaving] = useState(false);
+  const inputRef = useRef<HTMLInputElement | HTMLSelectElement>(null);
+
+  useEffect(() => {
+    if (editing) {
+      setDraft(String(value ?? ''));
+      setTimeout(() => inputRef.current?.focus(), 0);
+    }
+  }, [editing, value]);
+
+  const commit = async () => {
+    let newValue: string | number | null;
+    if (field === 'oportunidade') {
+      newValue = draft ? Number(draft) : 0;
+    } else {
+      newValue = draft.trim() || null;
+    }
+    // Skip save if unchanged
+    const oldVal = field === 'oportunidade' ? (value ?? 0) : (value ?? null);
+    if (newValue === oldVal || String(newValue) === String(oldVal)) {
+      setEditing(false);
+      return;
+    }
+    setSaving(true);
+    await onSave(leadId, field, newValue);
+    setSaving(false);
+    setEditing(false);
+  };
+
+  const cancel = () => {
+    setDraft(String(value ?? ''));
+    setEditing(false);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') { e.preventDefault(); commit(); }
+    if (e.key === 'Escape') { e.preventDefault(); cancel(); }
+  };
+
+  const startEdit = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setEditing(true);
+  };
+
+  if (editing) {
+    const cls = `w-full h-7 px-1.5 text-xs rounded border bg-background outline-none focus:ring-1 focus:ring-ring ${saving ? 'cursor-wait border-primary' : 'border-input'}`;
+
+    if (field === 'faturamento_mensal') {
+      return (
+        <div onClick={e => e.stopPropagation()}>
+          <select
+            ref={inputRef as React.RefObject<HTMLSelectElement>}
+            className={cls}
+            value={draft}
+            onChange={e => { setDraft(e.target.value); }}
+            onBlur={commit}
+            onKeyDown={handleKeyDown}
+            disabled={saving}
+          >
+            <option value="">—</option>
+            {FATURAMENTO_OPTIONS.map(opt => (
+              <option key={opt} value={opt}>{opt}</option>
+            ))}
+          </select>
+        </div>
+      );
+    }
+
+    return (
+      <div onClick={e => e.stopPropagation()}>
+        <input
+          ref={inputRef as React.RefObject<HTMLInputElement>}
+          className={cls}
+          type={field === 'oportunidade' ? 'number' : 'text'}
+          value={draft}
+          onChange={e => setDraft(e.target.value)}
+          onBlur={commit}
+          onKeyDown={handleKeyDown}
+          disabled={saving}
+        />
+      </div>
+    );
+  }
+
+  // Display mode
+  let display: React.ReactNode;
+  if (field === 'oportunidade') {
+    display = formatCurrency(typeof value === 'number' ? value : null);
+  } else if (field === 'faturamento_mensal') {
+    display = (value as string) ?? '—';
+  } else {
+    display = (value as string) ?? '—';
+  }
+
+  return (
+    <span
+      className="cursor-text hover:bg-muted/60 rounded px-1 -mx-1 transition-colors"
+      onClick={startEdit}
+      title="Clique para editar"
+    >
+      {display}
+    </span>
+  );
 }
 
 /* ── Mobile Lead Card ── */
@@ -66,6 +200,7 @@ function LeadCard({ lead, onClick }: { lead: Lead; onClick: () => void }) {
 
 export default function LeadsPage() {
   const isMobile = useIsMobile();
+  const queryClient = useQueryClient();
   const [filters, setFilters] = useState<LeadsFilterState>({ ...EMPTY_FILTERS });
   const [sortKey, setSortKey] = useState<SortKey>('entrada');
   const [sortDir, setSortDir] = useState<SortDir>('desc');
@@ -130,6 +265,14 @@ export default function LeadsPage() {
       setSortDir('asc');
     }
     setPage(0);
+  };
+
+  const handleInlineSave = async (leadId: string, field: EditableField, newValue: string | number | null) => {
+    const { error } = await supabase.from('leads').update({ [field]: newValue }).eq('id', leadId);
+    if (error) return;
+    queryClient.setQueryData<Lead[]>(['leads-table'], old =>
+      old?.map(l => l.id === leadId ? { ...l, [field]: newValue } : l) ?? []
+    );
   };
 
   const SortIcon = ({ col }: { col: SortKey }) => {
@@ -246,11 +389,17 @@ export default function LeadsPage() {
                 <TableRow><TableCell colSpan={9} className="text-center py-8 text-muted-foreground">Nenhum lead encontrado</TableCell></TableRow>
               ) : paginated.map(lead => (
                 <TableRow key={lead.id} className="cursor-pointer hover:bg-muted/50" onClick={() => setSelectedLead(lead)}>
-                  <TableCell className="font-medium max-w-[200px] truncate">{lead.nome}</TableCell>
+                  <TableCell className="font-medium max-w-[200px]">
+                    <EditableCell value={lead.nome} leadId={lead.id} field="nome" onSave={handleInlineSave} />
+                  </TableCell>
                   <TableCell className="text-xs whitespace-nowrap">{formatDate(getEntrada(lead))}</TableCell>
                   <TableCell><Badge variant="secondary" className="text-[10px] whitespace-nowrap">{getStageLabel(lead.status)}</Badge></TableCell>
-                  <TableCell className="text-xs">{lead.faturamento_mensal ?? '—'}</TableCell>
-                  <TableCell className="text-xs whitespace-nowrap">{formatCurrency(lead.oportunidade)}</TableCell>
+                  <TableCell className="text-xs">
+                    <EditableCell value={lead.faturamento_mensal} leadId={lead.id} field="faturamento_mensal" onSave={handleInlineSave} />
+                  </TableCell>
+                  <TableCell className="text-xs whitespace-nowrap">
+                    <EditableCell value={lead.oportunidade} leadId={lead.id} field="oportunidade" onSave={handleInlineSave} />
+                  </TableCell>
                   <TableCell className="text-xs whitespace-nowrap">{formatDate(lead.data_proximo_contato)}</TableCell>
                   <TableCell className="text-center"><BoolIcon val={lead.mql} /></TableCell>
                   <TableCell className="text-center"><BoolIcon val={lead.sql_flag} /></TableCell>
