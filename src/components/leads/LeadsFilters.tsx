@@ -1,9 +1,11 @@
+import { useState } from 'react';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { CalendarIcon, X } from 'lucide-react';
+import { CalendarIcon, SlidersHorizontal, X } from 'lucide-react';
 import { format, subDays, startOfMonth, startOfWeek, endOfWeek, subMonths, startOfYear } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
@@ -93,6 +95,8 @@ const DATE_SHORTCUTS = [
 ];
 
 export function LeadsFilters({ filters, onChange, utmSources, faturamentos, produtos, funis }: Props) {
+  const [open, setOpen] = useState(false);
+
   const set = <K extends keyof LeadsFilterState>(key: K, val: LeadsFilterState[K]) =>
     onChange({ ...filters, [key]: val });
 
@@ -101,132 +105,201 @@ export function LeadsFilters({ filters, onChange, utmSources, faturamentos, prod
     onChange({ ...filters, dateFrom: from, dateTo: to });
   };
 
-  const hasFilters = filters.status !== 'all' || filters.mql !== 'all' || filters.sql !== 'all'
-    || filters.utmSource !== 'all' || filters.faturamento !== 'all'
-    || filters.produto !== 'all' || filters.funil !== 'all'
-    || filters.dateFrom || filters.dateTo || filters.search;
+  const activeFilterCount = [
+    filters.status !== 'all',
+    filters.produto !== 'all',
+    filters.funil !== 'all',
+    filters.utmSource !== 'all',
+    filters.faturamento !== 'all',
+    filters.mql !== 'all',
+    filters.sql !== 'all',
+    filters.dateFrom !== undefined,
+    filters.dateTo !== undefined,
+  ].filter(Boolean).length;
 
-  const clearAll = () => onChange({ ...EMPTY_FILTERS });
+  const hasFilters = activeFilterCount > 0 || !!filters.search;
+
+  const clearAll = () => {
+    onChange({ ...EMPTY_FILTERS });
+    setOpen(false);
+  };
 
   return (
-    <div className="space-y-3">
-      <div className="flex flex-wrap gap-2 items-end">
-        <Input
-          placeholder="Buscar nome, email ou whatsapp…"
-          value={filters.search}
-          onChange={e => set('search', e.target.value)}
-          className="w-64 h-9"
-        />
-        <Select value={filters.status} onValueChange={v => set('status', v)}>
-          <SelectTrigger className="w-44 h-9"><SelectValue placeholder="Status" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todos os Status</SelectItem>
-            {FUNNEL_STAGES.map(s => (
-              <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Select value={filters.produto} onValueChange={v => set('produto', v)}>
-          <SelectTrigger className="w-36 h-9"><SelectValue placeholder="Produto" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todos Produtos</SelectItem>
-            {produtos.map(p => (
-              <SelectItem key={p} value={p}>{p}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Select value={filters.funil} onValueChange={v => set('funil', v)}>
-          <SelectTrigger className="w-44 h-9"><SelectValue placeholder="Funil" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todos os Funis</SelectItem>
-            {funis.map(f => (
-              <SelectItem key={f} value={f}>{f}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Select value={filters.mql} onValueChange={v => set('mql', v)}>
-          <SelectTrigger className="w-28 h-9"><SelectValue placeholder="MQL" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">MQL: Todos</SelectItem>
-            <SelectItem value="true">MQL: Sim</SelectItem>
-            <SelectItem value="false">MQL: Não</SelectItem>
-          </SelectContent>
-        </Select>
-        <Select value={filters.sql} onValueChange={v => set('sql', v)}>
-          <SelectTrigger className="w-28 h-9"><SelectValue placeholder="SQL" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">SQL: Todos</SelectItem>
-            <SelectItem value="true">SQL: Sim</SelectItem>
-            <SelectItem value="false">SQL: Não</SelectItem>
-          </SelectContent>
-        </Select>
-        <Select value={filters.utmSource} onValueChange={v => set('utmSource', v)}>
-          <SelectTrigger className="w-40 h-9"><SelectValue placeholder="Fonte" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todas as Fontes</SelectItem>
-            {utmSources.map(s => (
-              <SelectItem key={s} value={s}>{s}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Select value={filters.faturamento} onValueChange={v => set('faturamento', v)}>
-          <SelectTrigger className="w-44 h-9"><SelectValue placeholder="Faturamento" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todos Faturamentos</SelectItem>
-            {faturamentos.map(f => (
-              <SelectItem key={f} value={f}>{f}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-      <div className="flex flex-wrap gap-2 items-center">
-        <span className="text-xs text-muted-foreground">Entrada:</span>
-        <Select
-          value="placeholder"
-          onValueChange={v => {
-            const shortcut = DATE_SHORTCUTS.find(s => s.label === v);
-            if (shortcut) applyShortcut(shortcut);
-          }}
-        >
-          <SelectTrigger className="w-44 h-9">
-            <SelectValue placeholder="Atalhos de data" />
-          </SelectTrigger>
-          <SelectContent>
-            {DATE_SHORTCUTS.map(s => (
-              <SelectItem key={s.label} value={s.label}>{s.label}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <div className="flex gap-2 items-center">
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button variant="outline" size="sm" className={cn('h-9 w-36 justify-start text-left font-normal', !filters.dateFrom && 'text-muted-foreground')}>
-                <CalendarIcon className="mr-2 h-3.5 w-3.5" />
-                {filters.dateFrom ? format(filters.dateFrom, 'dd/MM/yyyy') : 'De'}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-auto p-0" align="start">
-              <Calendar mode="single" selected={filters.dateFrom} onSelect={d => set('dateFrom', d)} locale={ptBR} className="p-3 pointer-events-auto" />
-            </PopoverContent>
-          </Popover>
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button variant="outline" size="sm" className={cn('h-9 w-36 justify-start text-left font-normal', !filters.dateTo && 'text-muted-foreground')}>
-                <CalendarIcon className="mr-2 h-3.5 w-3.5" />
-                {filters.dateTo ? format(filters.dateTo, 'dd/MM/yyyy') : 'Até'}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-auto p-0" align="start">
-              <Calendar mode="single" selected={filters.dateTo} onSelect={d => set('dateTo', d)} locale={ptBR} className="p-3 pointer-events-auto" />
-            </PopoverContent>
-          </Popover>
-        </div>
-        {hasFilters && (
-          <Button variant="ghost" size="sm" onClick={clearAll} className="h-9 text-xs">
-            <X className="h-3 w-3 mr-1" />Limpar filtros
+    <div className="flex flex-wrap gap-2 items-center">
+      <Input
+        placeholder="Buscar nome, email ou whatsapp…"
+        value={filters.search}
+        onChange={e => set('search', e.target.value)}
+        className="w-64 h-9"
+      />
+
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger asChild>
+          <Button
+            variant="outline"
+            size="sm"
+            className={cn('h-9 gap-2', activeFilterCount > 0 && 'border-primary text-primary')}
+          >
+            <SlidersHorizontal className="h-4 w-4" />
+            Filtros
+            {activeFilterCount > 0 && (
+              <Badge className="h-5 min-w-5 px-1 text-xs rounded-full bg-primary text-primary-foreground">
+                {activeFilterCount}
+              </Badge>
+            )}
           </Button>
-        )}
-      </div>
+        </PopoverTrigger>
+        <PopoverContent className="w-[480px] p-4" align="start">
+          <div className="flex items-center justify-between mb-4">
+            <span className="font-medium text-sm">Filtros</span>
+            {activeFilterCount > 0 && (
+              <Button variant="ghost" size="sm" onClick={clearAll} className="h-7 text-xs text-muted-foreground hover:text-foreground">
+                <X className="h-3 w-3 mr-1" />Limpar tudo
+              </Button>
+            )}
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1">
+              <label className="text-xs text-muted-foreground">Status</label>
+              <Select value={filters.status} onValueChange={v => set('status', v)}>
+                <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Todos os Status" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos os Status</SelectItem>
+                  {FUNNEL_STAGES.map(s => (
+                    <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-xs text-muted-foreground">Produto</label>
+              <Select value={filters.produto} onValueChange={v => set('produto', v)}>
+                <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Todos Produtos" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos Produtos</SelectItem>
+                  {produtos.map(p => (
+                    <SelectItem key={p} value={p}>{p}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-xs text-muted-foreground">Funil</label>
+              <Select value={filters.funil} onValueChange={v => set('funil', v)}>
+                <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Todos os Funis" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos os Funis</SelectItem>
+                  {funis.map(f => (
+                    <SelectItem key={f} value={f}>{f}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-xs text-muted-foreground">Fonte (UTM)</label>
+              <Select value={filters.utmSource} onValueChange={v => set('utmSource', v)}>
+                <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Todas as Fontes" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todas as Fontes</SelectItem>
+                  {utmSources.map(s => (
+                    <SelectItem key={s} value={s}>{s}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-xs text-muted-foreground">Faturamento</label>
+              <Select value={filters.faturamento} onValueChange={v => set('faturamento', v)}>
+                <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Todos Faturamentos" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos Faturamentos</SelectItem>
+                  {faturamentos.map(f => (
+                    <SelectItem key={f} value={f}>{f}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2 col-span-1">
+              <div className="space-y-1">
+                <label className="text-xs text-muted-foreground">MQL</label>
+                <Select value={filters.mql} onValueChange={v => set('mql', v)}>
+                  <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Todos" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos</SelectItem>
+                    <SelectItem value="true">Sim</SelectItem>
+                    <SelectItem value="false">Não</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs text-muted-foreground">SQL</label>
+                <Select value={filters.sql} onValueChange={v => set('sql', v)}>
+                  <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Todos" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos</SelectItem>
+                    <SelectItem value="true">Sim</SelectItem>
+                    <SelectItem value="false">Não</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-4 space-y-2">
+            <label className="text-xs text-muted-foreground">Data de entrada</label>
+            <div className="flex gap-2 items-center">
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" size="sm" className={cn('h-8 flex-1 justify-start text-left text-xs font-normal', !filters.dateFrom && 'text-muted-foreground')}>
+                    <CalendarIcon className="mr-1.5 h-3 w-3" />
+                    {filters.dateFrom ? format(filters.dateFrom, 'dd/MM/yyyy') : 'De'}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar mode="single" selected={filters.dateFrom} onSelect={d => set('dateFrom', d)} locale={ptBR} className="p-3 pointer-events-auto" />
+                </PopoverContent>
+              </Popover>
+              <span className="text-xs text-muted-foreground">→</span>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" size="sm" className={cn('h-8 flex-1 justify-start text-left text-xs font-normal', !filters.dateTo && 'text-muted-foreground')}>
+                    <CalendarIcon className="mr-1.5 h-3 w-3" />
+                    {filters.dateTo ? format(filters.dateTo, 'dd/MM/yyyy') : 'Até'}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar mode="single" selected={filters.dateTo} onSelect={d => set('dateTo', d)} locale={ptBR} className="p-3 pointer-events-auto" />
+                </PopoverContent>
+              </Popover>
+            </div>
+            <div className="flex flex-wrap gap-1">
+              {DATE_SHORTCUTS.map(s => (
+                <Button
+                  key={s.label}
+                  variant="outline"
+                  size="sm"
+                  className="h-6 text-xs px-2 py-0"
+                  onClick={() => applyShortcut(s)}
+                >
+                  {s.label}
+                </Button>
+              ))}
+            </div>
+          </div>
+        </PopoverContent>
+      </Popover>
+
+      {hasFilters && (
+        <Button variant="ghost" size="sm" onClick={clearAll} className="h-9 text-xs text-muted-foreground">
+          <X className="h-3 w-3 mr-1" />Limpar
+        </Button>
+      )}
     </div>
   );
 }
