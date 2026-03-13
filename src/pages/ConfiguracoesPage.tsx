@@ -7,6 +7,7 @@ import { useWebhookConfig } from "@/hooks/useWebhookConfig";
 
 const ConfiguracoesPage = () => {
   const navigate = useNavigate();
+  const { data: webhookConfig } = useWebhookConfig();
 
   return (
     <div className="space-y-6">
