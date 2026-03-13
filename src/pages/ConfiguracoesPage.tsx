@@ -1,7 +1,9 @@
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { FileSpreadsheet, Megaphone, Link2, Users } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { FileSpreadsheet, Megaphone, Link2, Users, Webhook } from "lucide-react";
+import { useWebhookConfig } from "@/hooks/useWebhookConfig";
 
 const ConfiguracoesPage = () => {
   const navigate = useNavigate();
