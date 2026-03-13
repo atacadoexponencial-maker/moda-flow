@@ -15,6 +15,7 @@ import ImportLeadsPage from "@/pages/ImportLeadsPage";
 import MetaAdsConfigPage from "@/pages/MetaAdsConfigPage";
 import FunnelCampaignsPage from "@/pages/FunnelCampaignsPage";
 import UsersPage from "@/pages/UsersPage";
+import WebhookPage from "@/pages/configuracoes/WebhookPage";
 import NotFound from "@/pages/NotFound";
 
 const queryClient = new QueryClient();
