@@ -268,6 +268,36 @@ export type Database = {
         }
         Relationships: []
       }
+      webhook_configs: {
+        Row: {
+          created_at: string
+          enabled: boolean
+          id: string
+          label: string | null
+          last_used_at: string | null
+          token: string
+          total_leads_received: number
+        }
+        Insert: {
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          label?: string | null
+          last_used_at?: string | null
+          token?: string
+          total_leads_received?: number
+        }
+        Update: {
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          label?: string | null
+          last_used_at?: string | null
+          token?: string
+          total_leads_received?: number
+        }
+        Relationships: []
+      }
     }
     Views: {
       meta_config_safe: {
@@ -302,6 +332,10 @@ export type Database = {
       }
     }
     Functions: {
+      increment_webhook_leads: {
+        Args: { config_id: string }
+        Returns: undefined
+      }
       vault_create_secret: {
         Args: { new_name: string; new_secret: string }
         Returns: string
