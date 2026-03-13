@@ -127,10 +127,10 @@ Deno.serve(async (req) => {
     let nextUrl: string | null = insightsUrl;
 
     while (nextUrl) {
-      const response = await fetch(nextUrl, {
+      const response: Response = await fetch(nextUrl, {
         headers: { Authorization: `Bearer ${accessToken}` },
       });
-      const json = await response.json();
+      const json: any = await response.json();
 
       if (json.error) {
         console.error("Meta API error:", json.error);
