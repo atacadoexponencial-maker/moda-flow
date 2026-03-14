@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { ChevronRight } from "lucide-react";
 
 interface Lead {
   mql: boolean | null;
@@ -53,10 +54,7 @@ export function FunnelChart({ leads, funil, investimento }: FunnelChartProps) {
     ];
   }, [leads, funil]);
 
-  const maxValue = Math.max(...data.map((d) => d.value), 1);
   const inv = investimento ?? 0;
-
-  const MIN_WIDTH = 28;
 
   return (
     <Card>
@@ -71,45 +69,32 @@ export function FunnelChart({ leads, funil, investimento }: FunnelChartProps) {
         </div>
       </CardHeader>
       <CardContent>
-        <div className="flex flex-col items-center gap-0 py-2">
+        {/* Stages row */}
+        <div className="flex items-stretch gap-0 overflow-x-auto pb-2">
           {data.map((stage, i) => {
-            const widthPct = Math.max((stage.value / maxValue) * 100, MIN_WIDTH);
             const isLast = i === data.length - 1;
-
             return (
-              <div key={stage.name} className="w-full flex flex-col items-center">
-                {/* Funnel bar */}
+              <div key={stage.name} className="flex items-center shrink-0">
+                {/* Stage card */}
                 <div
-                  className="flex items-center justify-between px-3 h-10 rounded transition-all duration-300"
-                  style={{
-                    width: `${widthPct}%`,
-                    backgroundColor: STAGE_COLORS[i],
-                    minWidth: 120,
-                  }}
+                  className="flex flex-col items-center justify-center rounded-lg px-4 py-3 min-w-[80px] border-t-4"
+                  style={{ borderColor: STAGE_COLORS[i] }}
                 >
-                  <span className="text-white font-semibold text-sm truncate">
+                  <span className="text-xs font-medium text-muted-foreground mb-1">
                     {stage.name}
                   </span>
-                  <span className="text-white font-bold text-sm ml-2 shrink-0">
+                  <span className="text-2xl font-bold text-foreground leading-none">
                     {stage.value.toLocaleString("pt-BR")}
                   </span>
                 </div>
 
-                {/* Arrow + conversion rate between stages */}
+                {/* Connector + rate */}
                 {!isLast && (
-                  <div className="flex flex-col items-center my-0.5">
-                    <svg width="20" height="14" viewBox="0 0 20 14" fill="none">
-                      <path
-                        d="M10 14L0 0H20L10 14Z"
-                        fill={STAGE_COLORS[i]}
-                        opacity={0.35}
-                      />
-                    </svg>
-                    {data[i + 1].rate !== "" && (
-                      <span className="text-xs font-medium text-muted-foreground -mt-0.5">
-                        {data[i + 1].rate}
-                      </span>
-                    )}
+                  <div className="flex flex-col items-center mx-1 shrink-0">
+                    <span className="text-[11px] font-semibold text-primary leading-none mb-0.5">
+                      {data[i + 1].rate}
+                    </span>
+                    <ChevronRight className="h-4 w-4 text-muted-foreground" />
                   </div>
                 )}
               </div>
@@ -117,16 +102,17 @@ export function FunnelChart({ leads, funil, investimento }: FunnelChartProps) {
           })}
         </div>
 
-        {/* CPL per stage */}
+        {/* CPL chips */}
         {inv > 0 && (
-          <div className="flex items-center justify-center gap-4 mt-3 text-xs text-muted-foreground flex-wrap border-t pt-3">
+          <div className="flex items-center gap-2 mt-3 pt-3 border-t flex-wrap">
             {data.map((d) =>
               d.value > 0 ? (
-                <span key={d.name} className="flex items-center gap-1">
-                  <span className="font-medium text-foreground">
-                    {fmtCurrency(inv / d.value)}
-                  </span>
-                  <span>CPL {d.name}</span>
+                <span
+                  key={d.name}
+                  className="inline-flex items-center gap-1 text-xs bg-muted rounded-full px-2.5 py-1"
+                >
+                  <span className="font-semibold text-foreground">{fmtCurrency(inv / d.value)}</span>
+                  <span className="text-muted-foreground">/{d.name}</span>
                 </span>
               ) : null
             )}
