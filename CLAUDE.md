@@ -53,3 +53,28 @@ E2E tests use Playwright (`playwright.config.ts`).
 Components use **shadcn/ui** (Radix UI + Tailwind CSS). The pipeline page uses **@dnd-kit** for drag-and-drop. Charts use **Recharts**. Forms use **React Hook Form + Zod**.
 
 The UI is in **Portuguese (pt-BR)**.
+
+## Working with Lovable
+
+This project is co-developed with **Lovable** (lovable.dev), an AI-powered dev environment that has direct access to deploy Supabase Edge Functions, run migrations, and sync the Supabase project.
+
+### What requires Lovable
+
+Some actions cannot be done via Claude Code alone and must be executed through the Lovable chat interface:
+
+- **Deploying Edge Functions** — Lovable deploys them directly to the Supabase project. Editing files locally has no effect until Lovable redeploys.
+- **Running database migrations** — Lovable applies `.sql` migration files to the live Supabase instance.
+- **Updating `src/integrations/supabase/types.ts`** — Lovable regenerates this file after schema changes.
+
+### How to handle this
+
+Whenever a task requires one of the above actions, **provide a ready-to-paste Lovable prompt** at the end of the response, formatted like this:
+
+---
+**Lovable input:**
+```
+<prompt in Portuguese describing exactly what to implement or deploy>
+```
+---
+
+The prompt should be self-contained and precise — include field names, function names, or SQL snippets as needed so the user can paste it directly without editing.
