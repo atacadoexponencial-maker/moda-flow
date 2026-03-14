@@ -16,6 +16,7 @@ import MetaAdsConfigPage from "@/pages/MetaAdsConfigPage";
 import FunnelCampaignsPage from "@/pages/FunnelCampaignsPage";
 import UsersPage from "@/pages/UsersPage";
 import CamposPage from "@/pages/CamposPage";
+import WebhookPage from "@/pages/configuracoes/WebhookPage";
 import NotFound from "@/pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -45,6 +46,7 @@ function AuthenticatedRoutes() {
         <Route path="/configuracoes/importar" element={<ImportLeadsPage />} />
         <Route path="/configuracoes/meta-ads" element={<MetaAdsConfigPage />} />
         <Route path="/configuracoes/vincular-campanhas" element={<FunnelCampaignsPage />} />
+        <Route path="/configuracoes/webhook" element={<WebhookPage />} />
         <Route path="/configuracoes/usuarios" element={<UsersPage />} />
         <Route path="/configuracoes/campos" element={<CamposPage />} />
       </Route>
