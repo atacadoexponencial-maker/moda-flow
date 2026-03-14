@@ -19,6 +19,7 @@ import { LeadsFilters, EMPTY_FILTERS, type LeadsFilterState } from '@/components
 import { useLeadsFilterOptions, applyLeadFilters } from '@/lib/leads-filter-utils';
 import { useIsMobile } from '@/hooks/use-mobile';
 import type { Tables } from '@/integrations/supabase/types';
+import { type FieldDef } from '@/pages/CamposPage';
 
 type Lead = Tables<'leads'>;
 type SortKey = 'nome' | 'entrada' | 'status' | 'faturamento_mensal' | 'oportunidade' | 'data_proximo_contato' | 'mql' | 'sql_flag' | 'utm_source';
@@ -26,18 +27,17 @@ type SortDir = 'asc' | 'desc';
 
 const PER_PAGE = 20;
 
-type ColKey = 'nome' | 'entrada' | 'status' | 'faturamento_mensal' | 'oportunidade' | 'data_proximo_contato' | 'mql' | 'sql_flag' | 'utm_source';
-
-const COLUMN_DEFS: { key: ColKey; label: string; locked?: boolean }[] = [
-  { key: 'nome',                  label: 'Nome',          locked: true },
-  { key: 'entrada',               label: 'Entrada' },
-  { key: 'status',                label: 'Status' },
-  { key: 'faturamento_mensal',    label: 'Faturamento' },
-  { key: 'oportunidade',          label: 'Oportunidade' },
-  { key: 'data_proximo_contato',  label: 'Próx. Contato' },
-  { key: 'mql',                   label: 'MQL' },
-  { key: 'sql_flag',              label: 'SQL' },
-  { key: 'utm_source',            label: 'Fonte' },
+// Fallback usado enquanto a tabela lead_field_definitions não estiver disponível
+const FALLBACK_FIELDS: FieldDef[] = [
+  { id: '1', key: 'nome',                 label: 'Nome',          field_type: 'text',    options: null, visible: true, sort_order: 0, is_system: true, created_at: '' },
+  { id: '2', key: 'entrada',              label: 'Entrada',       field_type: 'date',    options: null, visible: true, sort_order: 1, is_system: true, created_at: '' },
+  { id: '3', key: 'status',               label: 'Status',        field_type: 'select',  options: null, visible: true, sort_order: 2, is_system: true, created_at: '' },
+  { id: '4', key: 'faturamento_mensal',   label: 'Faturamento',   field_type: 'select',  options: null, visible: true, sort_order: 3, is_system: true, created_at: '' },
+  { id: '5', key: 'oportunidade',         label: 'Oportunidade',  field_type: 'number',  options: null, visible: true, sort_order: 4, is_system: true, created_at: '' },
+  { id: '6', key: 'data_proximo_contato', label: 'Próx. Contato', field_type: 'date',    options: null, visible: true, sort_order: 5, is_system: true, created_at: '' },
+  { id: '7', key: 'mql',                  label: 'MQL',           field_type: 'boolean', options: null, visible: true, sort_order: 6, is_system: true, created_at: '' },
+  { id: '8', key: 'sql_flag',             label: 'SQL',           field_type: 'boolean', options: null, visible: true, sort_order: 7, is_system: true, created_at: '' },
+  { id: '9', key: 'utm_source',           label: 'Fonte',         field_type: 'text',    options: null, visible: true, sort_order: 8, is_system: true, created_at: '' },
 ];
 
 const FATURAMENTO_OPTIONS = [
@@ -228,14 +228,32 @@ export default function LeadsPage() {
   const [sortDir, setSortDir] = useState<SortDir>('desc');
   const [page, setPage] = useState(0);
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
-  const [visibleCols, setVisibleCols] = useState<Record<ColKey, boolean>>(
-    () => Object.fromEntries(COLUMN_DEFS.map(c => [c.key, true])) as Record<ColKey, boolean>
-  );
 
-  const toggleCol = (key: ColKey) =>
-    setVisibleCols(prev => ({ ...prev, [key]: !prev[key] }));
+  const { data: fieldDefs = FALLBACK_FIELDS } = useQuery<FieldDef[]>({
+    queryKey: ['lead-field-definitions'],
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from('lead_field_definitions')
+        .select('*')
+        .order('sort_order');
+      if (error) return FALLBACK_FIELDS;
+      return (data?.length ? data : FALLBACK_FIELDS) as FieldDef[];
+    },
+  });
 
-  const visibleCount = COLUMN_DEFS.filter(c => visibleCols[c.key]).length;
+  const [visibleCols, setVisibleCols] = useState<Record<string, boolean>>({});
+
+  // Sincroniza visibleCols quando fieldDefs carrega
+  const effectiveVisible = (key: string): boolean => {
+    if (key in visibleCols) return visibleCols[key];
+    const def = fieldDefs.find(f => f.key === key);
+    return def ? def.visible : true;
+  };
+
+  const toggleCol = (key: string) =>
+    setVisibleCols(prev => ({ ...prev, [key]: !effectiveVisible(key) }));
+
+  const visibleCount = fieldDefs.filter(f => effectiveVisible(f.key)).length;
 
   const { data: allLeads = [], isLoading } = useQuery({
     queryKey: ['leads-table'],
@@ -377,12 +395,12 @@ export default function LeadsPage() {
             <DropdownMenuContent align="end" className="w-48">
               <DropdownMenuLabel>Colunas visíveis</DropdownMenuLabel>
               <DropdownMenuSeparator />
-              {COLUMN_DEFS.map(col => (
+              {fieldDefs.map(col => (
                 <DropdownMenuCheckboxItem
                   key={col.key}
-                  checked={visibleCols[col.key]}
-                  onCheckedChange={() => !col.locked && toggleCol(col.key)}
-                  disabled={col.locked}
+                  checked={effectiveVisible(col.key)}
+                  onCheckedChange={() => col.key !== 'nome' && toggleCol(col.key)}
+                  disabled={col.key === 'nome'}
                 >
                   {col.label}
                 </DropdownMenuCheckboxItem>
@@ -423,15 +441,18 @@ export default function LeadsPage() {
           <Table>
             <TableHeader>
               <TableRow>
-                {visibleCols.nome                 && <SortableHead col="nome">Nome</SortableHead>}
-                {visibleCols.entrada              && <SortableHead col="entrada">Entrada</SortableHead>}
-                {visibleCols.status               && <SortableHead col="status">Status</SortableHead>}
-                {visibleCols.faturamento_mensal   && <SortableHead col="faturamento_mensal">Faturamento</SortableHead>}
-                {visibleCols.oportunidade         && <SortableHead col="oportunidade">Oportunidade</SortableHead>}
-                {visibleCols.data_proximo_contato && <SortableHead col="data_proximo_contato">Próx. Contato</SortableHead>}
-                {visibleCols.mql                  && <SortableHead col="mql" className="text-center">MQL</SortableHead>}
-                {visibleCols.sql_flag             && <SortableHead col="sql_flag" className="text-center">SQL</SortableHead>}
-                {visibleCols.utm_source           && <SortableHead col="utm_source">Fonte</SortableHead>}
+                {effectiveVisible('nome')                 && <SortableHead col="nome">Nome</SortableHead>}
+                {effectiveVisible('entrada')              && <SortableHead col="entrada">Entrada</SortableHead>}
+                {effectiveVisible('status')               && <SortableHead col="status">Status</SortableHead>}
+                {effectiveVisible('faturamento_mensal')   && <SortableHead col="faturamento_mensal">Faturamento</SortableHead>}
+                {effectiveVisible('oportunidade')         && <SortableHead col="oportunidade">Oportunidade</SortableHead>}
+                {effectiveVisible('data_proximo_contato') && <SortableHead col="data_proximo_contato">Próx. Contato</SortableHead>}
+                {effectiveVisible('mql')                  && <SortableHead col="mql" className="text-center">MQL</SortableHead>}
+                {effectiveVisible('sql_flag')             && <SortableHead col="sql_flag" className="text-center">SQL</SortableHead>}
+                {effectiveVisible('utm_source')           && <SortableHead col="utm_source">Fonte</SortableHead>}
+                {fieldDefs.filter(f => !f.is_system && effectiveVisible(f.key)).map(f => (
+                  <TableHead key={f.key}>{f.label}</TableHead>
+                ))}
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -441,15 +462,20 @@ export default function LeadsPage() {
                 <TableRow><TableCell colSpan={visibleCount} className="text-center py-8 text-muted-foreground">Nenhum lead encontrado</TableCell></TableRow>
               ) : paginated.map(lead => (
                 <TableRow key={lead.id} className="cursor-pointer hover:bg-muted/50" onClick={() => setSelectedLead(lead)}>
-                  {visibleCols.nome               && <TableCell className="font-medium max-w-[200px]"><EditableCell value={lead.nome} leadId={lead.id} field="nome" onSave={handleInlineSave} /></TableCell>}
-                  {visibleCols.entrada            && <TableCell className="text-xs whitespace-nowrap">{formatDate(getEntrada(lead))}</TableCell>}
-                  {visibleCols.status             && <TableCell><EditableCell value={lead.status} leadId={lead.id} field="status" onSave={handleInlineSave} /></TableCell>}
-                  {visibleCols.faturamento_mensal && <TableCell className="text-xs"><EditableCell value={lead.faturamento_mensal} leadId={lead.id} field="faturamento_mensal" onSave={handleInlineSave} /></TableCell>}
-                  {visibleCols.oportunidade       && <TableCell className="text-xs whitespace-nowrap"><EditableCell value={lead.oportunidade} leadId={lead.id} field="oportunidade" onSave={handleInlineSave} /></TableCell>}
-                  {visibleCols.data_proximo_contato && <TableCell className="text-xs whitespace-nowrap">{formatDate(lead.data_proximo_contato)}</TableCell>}
-                  {visibleCols.mql                && <TableCell className="text-center"><BoolIcon val={lead.mql} /></TableCell>}
-                  {visibleCols.sql_flag           && <TableCell className="text-center"><BoolIcon val={lead.sql_flag} /></TableCell>}
-                  {visibleCols.utm_source         && <TableCell className="text-xs max-w-[120px] truncate">{lead.utm_source ?? '—'}</TableCell>}
+                  {effectiveVisible('nome')               && <TableCell className="font-medium max-w-[200px]"><EditableCell value={lead.nome} leadId={lead.id} field="nome" onSave={handleInlineSave} /></TableCell>}
+                  {effectiveVisible('entrada')            && <TableCell className="text-xs whitespace-nowrap">{formatDate(getEntrada(lead))}</TableCell>}
+                  {effectiveVisible('status')             && <TableCell><EditableCell value={lead.status} leadId={lead.id} field="status" onSave={handleInlineSave} /></TableCell>}
+                  {effectiveVisible('faturamento_mensal') && <TableCell className="text-xs"><EditableCell value={lead.faturamento_mensal} leadId={lead.id} field="faturamento_mensal" onSave={handleInlineSave} /></TableCell>}
+                  {effectiveVisible('oportunidade')       && <TableCell className="text-xs whitespace-nowrap"><EditableCell value={lead.oportunidade} leadId={lead.id} field="oportunidade" onSave={handleInlineSave} /></TableCell>}
+                  {effectiveVisible('data_proximo_contato') && <TableCell className="text-xs whitespace-nowrap">{formatDate(lead.data_proximo_contato)}</TableCell>}
+                  {effectiveVisible('mql')                && <TableCell className="text-center"><BoolIcon val={lead.mql} /></TableCell>}
+                  {effectiveVisible('sql_flag')           && <TableCell className="text-center"><BoolIcon val={lead.sql_flag} /></TableCell>}
+                  {effectiveVisible('utm_source')         && <TableCell className="text-xs max-w-[120px] truncate">{lead.utm_source ?? '—'}</TableCell>}
+                  {fieldDefs.filter(f => !f.is_system && effectiveVisible(f.key)).map(f => (
+                    <TableCell key={f.key} className="text-xs max-w-[150px] truncate">
+                      {((lead as any).custom_data?.[f.key]) ?? '—'}
+                    </TableCell>
+                  ))}
                 </TableRow>
               ))}
             </TableBody>

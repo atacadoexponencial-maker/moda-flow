@@ -2,7 +2,7 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { FileSpreadsheet, Megaphone, Link2, Users, Webhook } from "lucide-react";
+import { FileSpreadsheet, Megaphone, Link2, Users, Columns, Webhook } from "lucide-react";
 import { useWebhookConfig } from "@/hooks/useWebhookConfig";
 
 const ConfiguracoesPage = () => {
@@ -15,6 +15,17 @@ const ConfiguracoesPage = () => {
         <h2 className="text-2xl font-bold text-foreground">Configurações</h2>
         <p className="text-muted-foreground mt-1">Configurações do sistema.</p>
       </div>
+
+      <Card className="cursor-pointer hover:border-primary/50 transition-colors" onClick={() => navigate("/configuracoes/campos")}>
+        <CardContent className="flex items-center gap-4 py-5">
+          <Columns className="h-8 w-8 text-primary" />
+          <div>
+            <p className="font-medium text-foreground">Campos do CRM</p>
+            <p className="text-sm text-muted-foreground">Gerencie os campos exibidos na tabela de leads e adicione campos personalizados.</p>
+          </div>
+          <Button variant="outline" className="ml-auto" size="sm">Configurar</Button>
+        </CardContent>
+      </Card>
 
       <Card className="cursor-pointer hover:border-primary/50 transition-colors" onClick={() => navigate("/configuracoes/importar")}>
         <CardContent className="flex items-center gap-4 py-5">
