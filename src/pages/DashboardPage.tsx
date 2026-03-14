@@ -1,20 +1,21 @@
 import { useState, useEffect, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { TrendingUp, TrendingDown, Minus, Users, Target, CheckCircle2, Handshake, DollarSign, Trophy, Megaphone } from "lucide-react";
+import { TrendingUp, TrendingDown, Minus, Users, Target, CheckCircle2, Handshake, Trophy } from "lucide-react";
 import {
   PeriodKey,
   getPeriodRange,
   getLeadDate,
   isInRange,
 } from "@/lib/dashboard-utils";
-import { ACTIVE_STAGES } from "@/lib/constants";
 import { FunnelChart } from "@/components/dashboard/FunnelChart";
 import { LeadSourceChart } from "@/components/dashboard/LeadSourceChart";
 import { format } from "date-fns";
+
+// TODO: substituir por campo do back-end quando disponível
+const META_ARRECADADO = 0;
 
 interface Lead {
   data_criada: string | null;
@@ -46,41 +47,41 @@ function formatCurrency(value: number): string {
   return value.toLocaleString("pt-BR", { style: "currency", currency: "BRL", minimumFractionDigits: 0, maximumFractionDigits: 0 });
 }
 
-function formatPercent(value: number): string {
-  if (!isFinite(value)) return "0%";
-  return `${value.toFixed(1)}%`;
-}
-
 interface KpiCardProps {
   title: string;
   value: string;
   change: number | null;
   icon: React.ReactNode;
+  metaValue?: number;
 }
 
-function KpiCard({ title, value, change, icon }: KpiCardProps) {
+function KpiCard({ title, value, change, icon, metaValue }: KpiCardProps) {
   const isPositive = change !== null && change > 0;
   const isNegative = change !== null && change < 0;
   const isNeutral = change === null || change === 0;
 
+  const metaPercent = metaValue && metaValue > 0
+    ? Math.min(Math.round((parseFloat(value.replace(/\D/g, "")) / metaValue) * 100), 100)
+    : null;
+
   return (
-    <Card className="flex-1 min-w-[140px]">
-      <CardContent className="pt-5 pb-4 px-5">
-        <div className="flex items-center justify-between mb-3">
-          <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+    <Card className="flex-1 min-w-0">
+      <CardContent className="pt-4 pb-4 px-4">
+        <div className="flex items-center justify-between mb-2">
+          <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide truncate pr-2">
             {title}
           </span>
-          <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center">
+          <div className="h-7 w-7 shrink-0 rounded-lg bg-primary/10 flex items-center justify-center">
             {icon}
           </div>
         </div>
-        <p className="text-2xl font-bold text-foreground tracking-tight">{value}</p>
+        <p className="text-2xl font-bold text-foreground tracking-tight leading-tight">{value}</p>
         <div className="mt-1.5 flex items-center gap-1">
-          {isPositive && <TrendingUp className="h-3.5 w-3.5 text-emerald-600" />}
-          {isNegative && <TrendingDown className="h-3.5 w-3.5 text-red-500" />}
-          {isNeutral && <Minus className="h-3.5 w-3.5 text-muted-foreground" />}
+          {isPositive && <TrendingUp className="h-3.5 w-3.5 text-emerald-600 shrink-0" />}
+          {isNegative && <TrendingDown className="h-3.5 w-3.5 text-red-500 shrink-0" />}
+          {isNeutral && <Minus className="h-3.5 w-3.5 text-muted-foreground shrink-0" />}
           <span
-            className={`text-xs font-medium ${
+            className={`text-xs font-medium truncate ${
               isPositive
                 ? "text-emerald-600"
                 : isNegative
@@ -93,6 +94,23 @@ function KpiCard({ title, value, change, icon }: KpiCardProps) {
               : "sem comparação"}
           </span>
         </div>
+        {metaValue && metaValue > 0 && metaPercent !== null && (
+          <div className="mt-2 pt-2 border-t">
+            <div className="flex items-center justify-between mb-1">
+              <span className="text-xs text-muted-foreground">Meta</span>
+              <span className={`text-xs font-bold ${metaPercent >= 100 ? "text-emerald-600" : metaPercent >= 70 ? "text-amber-600" : "text-red-500"}`}>
+                {metaPercent}%
+              </span>
+            </div>
+            <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
+              <div
+                className={`h-full rounded-full transition-all ${metaPercent >= 100 ? "bg-emerald-500" : metaPercent >= 70 ? "bg-amber-500" : "bg-red-500"}`}
+                style={{ width: `${metaPercent}%` }}
+              />
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">{formatCurrency(metaValue)}</p>
+          </div>
+        )}
       </CardContent>
     </Card>
   );
@@ -122,7 +140,6 @@ function calcSpendForRange(
   const from = fmtDate(rangeFrom);
   const to = fmtDate(rangeTo);
 
-  // Get relevant campaign IDs
   let campaignIds: Set<string>;
   if (funil === "all") {
     campaignIds = new Set(funnelCampaigns.map((fc) => fc.campaign_id));
@@ -181,11 +198,6 @@ const DashboardPage = () => {
     return calcSpendForRange(metaAds, funnelCampaigns, current.from, current.to, selectedFunil);
   }, [metaAds, funnelCampaigns, period, selectedFunil]);
 
-  const investimentoPrevious = useMemo(() => {
-    const { previous } = getPeriodRange(period);
-    return calcSpendForRange(metaAds, funnelCampaigns, previous.from, previous.to, selectedFunil);
-  }, [metaAds, funnelCampaigns, period, selectedFunil]);
-
   const kpis = useMemo(() => {
     const { current, previous } = getPeriodRange(period);
 
@@ -197,22 +209,12 @@ const DashboardPage = () => {
 
     const mqlCurrent = currentLeads.filter((l) => l.mql).length;
     const mqlPrevious = previousLeads.filter((l) => l.mql).length;
-    const mqlRateCurrent = totalCurrent > 0 ? (mqlCurrent / totalCurrent) * 100 : 0;
-    const mqlRatePrevious = totalPrevious > 0 ? (mqlPrevious / totalPrevious) * 100 : 0;
 
-    const sqlCurrent = currentLeads.filter((l) => l.mql && l.sql_flag).length;
-    const sqlPrevious = previousLeads.filter((l) => l.mql && l.sql_flag).length;
-    const sqlRateCurrent = mqlCurrent > 0 ? (sqlCurrent / mqlCurrent) * 100 : 0;
-    const sqlRatePrevious = mqlPrevious > 0 ? (sqlPrevious / mqlPrevious) * 100 : 0;
+    const sqlCurrent = currentLeads.filter((l) => l.sql_flag).length;
+    const sqlPrevious = previousLeads.filter((l) => l.sql_flag).length;
 
-    const closedCurrent = currentLeads.filter((l) => l.mql && l.sql_flag && l.status === "contrato_assinado").length;
-    const closedPrevious = previousLeads.filter((l) => l.mql && l.sql_flag && l.status === "contrato_assinado").length;
-    const closeRateCurrent = sqlCurrent > 0 ? (closedCurrent / sqlCurrent) * 100 : 0;
-    const closeRatePrevious = sqlPrevious > 0 ? (closedPrevious / sqlPrevious) * 100 : 0;
-
-    const activeStagesSet = new Set(ACTIVE_STAGES as readonly string[]);
-    const pipelineLeads = leads.filter((l) => activeStagesSet.has(l.status));
-    const pipelineTotal = pipelineLeads.reduce((sum, l) => sum + (l.oportunidade || 0), 0);
+    const comprasCurrent = currentLeads.filter((l) => l.status === "contrato_assinado").length;
+    const comprasPrevious = previousLeads.filter((l) => l.status === "contrato_assinado").length;
 
     const arrecadadoCurrent = currentLeads
       .filter((l) => l.status === "contrato_assinado")
@@ -222,37 +224,13 @@ const DashboardPage = () => {
       .reduce((sum, l) => sum + (l.arrecadado || 0), 0);
 
     return {
-      totalLeads: { value: totalCurrent, change: computeChange(totalCurrent, totalPrevious) },
-      mqlRate: { value: mqlRateCurrent, change: computeChange(mqlRateCurrent, mqlRatePrevious) },
-      sqlRate: { value: sqlRateCurrent, change: computeChange(sqlRateCurrent, sqlRatePrevious) },
-      closeRate: { value: closeRateCurrent, change: computeChange(closeRateCurrent, closeRatePrevious) },
-      pipeline: { value: pipelineTotal, change: null },
       arrecadado: { value: arrecadadoCurrent, change: computeChange(arrecadadoCurrent, arrecadadoPrevious) },
+      totalLeads: { value: totalCurrent, change: computeChange(totalCurrent, totalPrevious) },
+      mqls: { value: mqlCurrent, change: computeChange(mqlCurrent, mqlPrevious) },
+      sqls: { value: sqlCurrent, change: computeChange(sqlCurrent, sqlPrevious) },
+      compras: { value: comprasCurrent, change: computeChange(comprasCurrent, comprasPrevious) },
     };
   }, [leads, period]);
-
-  /* Consolidated table by funil */
-  const consolidatedData = useMemo(() => {
-    if (selectedFunil !== "all") return [];
-    const byFunil = new Map<string, Lead[]>();
-    for (const l of currentLeadsForCharts) {
-      const key = l.funil || "Sem funil";
-      if (!byFunil.has(key)) byFunil.set(key, []);
-      byFunil.get(key)!.push(l);
-    }
-    return [...byFunil.entries()]
-      .map(([funil, fLeads]) => {
-        const total = fLeads.length;
-        const mql = fLeads.filter((l) => l.mql).length;
-        const sql = fLeads.filter((l) => l.sql_flag).length;
-        const ra = fLeads.filter((l) => l.ra_flag).length;
-        const rr = fLeads.filter((l) => l.rr_flag).length;
-        const venda = fLeads.filter((l) => l.status === "contrato_assinado").length;
-        const taxa = total > 0 ? ((venda / total) * 100).toFixed(1) : "0.0";
-        return { funil, total, mql, sql, ra, rr, venda, taxa };
-      })
-      .sort((a, b) => b.total - a.total);
-  }, [currentLeadsForCharts, selectedFunil]);
 
   return (
     <div className="space-y-6">
@@ -289,102 +267,51 @@ const DashboardPage = () => {
       </div>
 
       {loading ? (
-        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
-          {Array.from({ length: 7 }).map((_, i) => (
-            <Card key={i} className="flex-1 min-w-[140px] animate-pulse">
-              <CardContent className="pt-5 pb-4 px-5 h-[120px]" />
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <Card key={i} className="flex-1 animate-pulse">
+              <CardContent className="pt-4 pb-4 px-4 h-[110px]" />
             </Card>
           ))}
         </div>
       ) : (
-        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
-          <KpiCard
-            title="Total Leads"
-            value={kpis.totalLeads.value.toLocaleString("pt-BR")}
-            change={kpis.totalLeads.change}
-            icon={<Users className="h-4 w-4 text-primary" />}
-          />
-          <KpiCard
-            title="Taxa MQL"
-            value={formatPercent(kpis.mqlRate.value)}
-            change={kpis.mqlRate.change}
-            icon={<Target className="h-4 w-4 text-primary" />}
-          />
-          <KpiCard
-            title="Taxa SQL"
-            value={formatPercent(kpis.sqlRate.value)}
-            change={kpis.sqlRate.change}
-            icon={<CheckCircle2 className="h-4 w-4 text-primary" />}
-          />
-          <KpiCard
-            title="Fechamento"
-            value={formatPercent(kpis.closeRate.value)}
-            change={kpis.closeRate.change}
-            icon={<Handshake className="h-4 w-4 text-primary" />}
-          />
-          <KpiCard
-            title="Pipeline"
-            value={formatCurrency(kpis.pipeline.value)}
-            change={kpis.pipeline.change}
-            icon={<DollarSign className="h-4 w-4 text-primary" />}
-          />
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
           <KpiCard
             title="Arrecadado"
             value={formatCurrency(kpis.arrecadado.value)}
             change={kpis.arrecadado.change}
             icon={<Trophy className="h-4 w-4 text-primary" />}
+            metaValue={META_ARRECADADO}
           />
           <KpiCard
-            title="Investimento"
-            value={formatCurrency(investimento)}
-            change={computeChange(investimento, investimentoPrevious)}
-            icon={<Megaphone className="h-4 w-4 text-primary" />}
+            title="Total de Leads"
+            value={kpis.totalLeads.value.toLocaleString("pt-BR")}
+            change={kpis.totalLeads.change}
+            icon={<Users className="h-4 w-4 text-primary" />}
+          />
+          <KpiCard
+            title="MQLs"
+            value={kpis.mqls.value.toLocaleString("pt-BR")}
+            change={kpis.mqls.change}
+            icon={<Target className="h-4 w-4 text-primary" />}
+          />
+          <KpiCard
+            title="SQLs"
+            value={kpis.sqls.value.toLocaleString("pt-BR")}
+            change={kpis.sqls.change}
+            icon={<CheckCircle2 className="h-4 w-4 text-primary" />}
+          />
+          <KpiCard
+            title="Compras"
+            value={kpis.compras.value.toLocaleString("pt-BR")}
+            change={kpis.compras.change}
+            icon={<Handshake className="h-4 w-4 text-primary" />}
           />
         </div>
       )}
 
       {!loading && (
         <FunnelChart leads={currentLeadsForCharts} funil={selectedFunil} investimento={investimento} />
-      )}
-
-      {!loading && selectedFunil === "all" && consolidatedData.length > 0 && (
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base">Consolidado por Funil</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="rounded-md border overflow-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="text-xs">Funil</TableHead>
-                    <TableHead className="text-xs text-center">Leads</TableHead>
-                    <TableHead className="text-xs text-center">MQL</TableHead>
-                    <TableHead className="text-xs text-center">SQL</TableHead>
-                    <TableHead className="text-xs text-center">RA</TableHead>
-                    <TableHead className="text-xs text-center">RR</TableHead>
-                    <TableHead className="text-xs text-center">Venda</TableHead>
-                    <TableHead className="text-xs text-center">Taxa</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {consolidatedData.map((row) => (
-                    <TableRow key={row.funil}>
-                      <TableCell className="text-xs font-medium">{row.funil}</TableCell>
-                      <TableCell className="text-xs text-center">{row.total}</TableCell>
-                      <TableCell className="text-xs text-center">{row.mql}</TableCell>
-                      <TableCell className="text-xs text-center">{row.sql}</TableCell>
-                      <TableCell className="text-xs text-center">{row.ra}</TableCell>
-                      <TableCell className="text-xs text-center">{row.rr}</TableCell>
-                      <TableCell className="text-xs text-center">{row.venda}</TableCell>
-                      <TableCell className="text-xs text-center">{row.taxa}%</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          </CardContent>
-        </Card>
       )}
 
       {!loading && (
