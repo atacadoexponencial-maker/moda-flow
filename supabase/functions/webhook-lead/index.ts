@@ -26,8 +26,8 @@ function mapPayloadToLead(body: Record<string, unknown>): Record<string, unknown
   record.utm_campaign = get("utm_campaign", "campaign") ?? null;
   record.utm_content = get("utm_content") ?? null;
   record.faturamento_mensal = get("faturamento_mensal", "faturamento") ?? null;
-  record.justificativa = get("justificativa", "motivo", "reason", "observacao", "observação", "obs") ?? null;
-  record.objetivo = get("objetivo", "meta", "goal") ?? null;
+  record.justificativa = get("justificativa", "motivo") ?? null;
+  record.objetivo = get("objetivo", "meta") ?? null;
 
   const opValue = get("oportunidade", "valor");
   if (opValue !== undefined) {
