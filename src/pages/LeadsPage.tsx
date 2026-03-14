@@ -5,7 +5,11 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { ChevronUp, ChevronDown, ChevronsUpDown, Check, X as XIcon, Download } from 'lucide-react';
+import { ChevronUp, ChevronDown, ChevronsUpDown, Check, X as XIcon, Download, SlidersHorizontal } from 'lucide-react';
+import {
+  DropdownMenu, DropdownMenuTrigger, DropdownMenuContent,
+  DropdownMenuCheckboxItem, DropdownMenuLabel, DropdownMenuSeparator,
+} from '@/components/ui/dropdown-menu';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { FUNNEL_STAGES, getStageLabel } from '@/lib/constants';
@@ -21,6 +25,20 @@ type SortKey = 'nome' | 'entrada' | 'status' | 'faturamento_mensal' | 'oportunid
 type SortDir = 'asc' | 'desc';
 
 const PER_PAGE = 20;
+
+type ColKey = 'nome' | 'entrada' | 'status' | 'faturamento_mensal' | 'oportunidade' | 'data_proximo_contato' | 'mql' | 'sql_flag' | 'utm_source';
+
+const COLUMN_DEFS: { key: ColKey; label: string; locked?: boolean }[] = [
+  { key: 'nome',                  label: 'Nome',          locked: true },
+  { key: 'entrada',               label: 'Entrada' },
+  { key: 'status',                label: 'Status' },
+  { key: 'faturamento_mensal',    label: 'Faturamento' },
+  { key: 'oportunidade',          label: 'Oportunidade' },
+  { key: 'data_proximo_contato',  label: 'Próx. Contato' },
+  { key: 'mql',                   label: 'MQL' },
+  { key: 'sql_flag',              label: 'SQL' },
+  { key: 'utm_source',            label: 'Fonte' },
+];
 
 const FATURAMENTO_OPTIONS = [
   'Menos de 20 Mil',
@@ -210,6 +228,14 @@ export default function LeadsPage() {
   const [sortDir, setSortDir] = useState<SortDir>('desc');
   const [page, setPage] = useState(0);
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
+  const [visibleCols, setVisibleCols] = useState<Record<ColKey, boolean>>(
+    () => Object.fromEntries(COLUMN_DEFS.map(c => [c.key, true])) as Record<ColKey, boolean>
+  );
+
+  const toggleCol = (key: ColKey) =>
+    setVisibleCols(prev => ({ ...prev, [key]: !prev[key] }));
+
+  const visibleCount = COLUMN_DEFS.filter(c => visibleCols[c.key]).length;
 
   const { data: allLeads = [], isLoading } = useQuery({
     queryKey: ['leads-table'],
@@ -341,6 +367,28 @@ export default function LeadsPage() {
             <Download className="h-4 w-4 mr-1 md:mr-2" />
             {!isMobile && 'Exportar CSV'}
           </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size={isMobile ? 'sm' : 'default'}>
+                <SlidersHorizontal className="h-4 w-4 mr-1 md:mr-2" />
+                {!isMobile && 'Colunas'}
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48">
+              <DropdownMenuLabel>Colunas visíveis</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              {COLUMN_DEFS.map(col => (
+                <DropdownMenuCheckboxItem
+                  key={col.key}
+                  checked={visibleCols[col.key]}
+                  onCheckedChange={() => !col.locked && toggleCol(col.key)}
+                  disabled={col.locked}
+                >
+                  {col.label}
+                </DropdownMenuCheckboxItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
           <NewLeadDialog />
         </div>
       </div>
@@ -375,41 +423,33 @@ export default function LeadsPage() {
           <Table>
             <TableHeader>
               <TableRow>
-                <SortableHead col="nome">Nome</SortableHead>
-                <SortableHead col="entrada">Entrada</SortableHead>
-                <SortableHead col="status">Status</SortableHead>
-                <SortableHead col="faturamento_mensal">Faturamento</SortableHead>
-                <SortableHead col="oportunidade">Oportunidade</SortableHead>
-                <SortableHead col="data_proximo_contato">Próx. Contato</SortableHead>
-                <SortableHead col="mql" className="text-center">MQL</SortableHead>
-                <SortableHead col="sql_flag" className="text-center">SQL</SortableHead>
-                <SortableHead col="utm_source">Fonte</SortableHead>
+                {visibleCols.nome                 && <SortableHead col="nome">Nome</SortableHead>}
+                {visibleCols.entrada              && <SortableHead col="entrada">Entrada</SortableHead>}
+                {visibleCols.status               && <SortableHead col="status">Status</SortableHead>}
+                {visibleCols.faturamento_mensal   && <SortableHead col="faturamento_mensal">Faturamento</SortableHead>}
+                {visibleCols.oportunidade         && <SortableHead col="oportunidade">Oportunidade</SortableHead>}
+                {visibleCols.data_proximo_contato && <SortableHead col="data_proximo_contato">Próx. Contato</SortableHead>}
+                {visibleCols.mql                  && <SortableHead col="mql" className="text-center">MQL</SortableHead>}
+                {visibleCols.sql_flag             && <SortableHead col="sql_flag" className="text-center">SQL</SortableHead>}
+                {visibleCols.utm_source           && <SortableHead col="utm_source">Fonte</SortableHead>}
               </TableRow>
             </TableHeader>
             <TableBody>
               {isLoading ? (
-                <TableRow><TableCell colSpan={9} className="text-center py-8 text-muted-foreground">Carregando…</TableCell></TableRow>
+                <TableRow><TableCell colSpan={visibleCount} className="text-center py-8 text-muted-foreground">Carregando…</TableCell></TableRow>
               ) : paginated.length === 0 ? (
-                <TableRow><TableCell colSpan={9} className="text-center py-8 text-muted-foreground">Nenhum lead encontrado</TableCell></TableRow>
+                <TableRow><TableCell colSpan={visibleCount} className="text-center py-8 text-muted-foreground">Nenhum lead encontrado</TableCell></TableRow>
               ) : paginated.map(lead => (
                 <TableRow key={lead.id} className="cursor-pointer hover:bg-muted/50" onClick={() => setSelectedLead(lead)}>
-                  <TableCell className="font-medium max-w-[200px]">
-                    <EditableCell value={lead.nome} leadId={lead.id} field="nome" onSave={handleInlineSave} />
-                  </TableCell>
-                  <TableCell className="text-xs whitespace-nowrap">{formatDate(getEntrada(lead))}</TableCell>
-                  <TableCell>
-                    <EditableCell value={lead.status} leadId={lead.id} field="status" onSave={handleInlineSave} />
-                  </TableCell>
-                  <TableCell className="text-xs">
-                    <EditableCell value={lead.faturamento_mensal} leadId={lead.id} field="faturamento_mensal" onSave={handleInlineSave} />
-                  </TableCell>
-                  <TableCell className="text-xs whitespace-nowrap">
-                    <EditableCell value={lead.oportunidade} leadId={lead.id} field="oportunidade" onSave={handleInlineSave} />
-                  </TableCell>
-                  <TableCell className="text-xs whitespace-nowrap">{formatDate(lead.data_proximo_contato)}</TableCell>
-                  <TableCell className="text-center"><BoolIcon val={lead.mql} /></TableCell>
-                  <TableCell className="text-center"><BoolIcon val={lead.sql_flag} /></TableCell>
-                  <TableCell className="text-xs max-w-[120px] truncate">{lead.utm_source ?? '—'}</TableCell>
+                  {visibleCols.nome               && <TableCell className="font-medium max-w-[200px]"><EditableCell value={lead.nome} leadId={lead.id} field="nome" onSave={handleInlineSave} /></TableCell>}
+                  {visibleCols.entrada            && <TableCell className="text-xs whitespace-nowrap">{formatDate(getEntrada(lead))}</TableCell>}
+                  {visibleCols.status             && <TableCell><EditableCell value={lead.status} leadId={lead.id} field="status" onSave={handleInlineSave} /></TableCell>}
+                  {visibleCols.faturamento_mensal && <TableCell className="text-xs"><EditableCell value={lead.faturamento_mensal} leadId={lead.id} field="faturamento_mensal" onSave={handleInlineSave} /></TableCell>}
+                  {visibleCols.oportunidade       && <TableCell className="text-xs whitespace-nowrap"><EditableCell value={lead.oportunidade} leadId={lead.id} field="oportunidade" onSave={handleInlineSave} /></TableCell>}
+                  {visibleCols.data_proximo_contato && <TableCell className="text-xs whitespace-nowrap">{formatDate(lead.data_proximo_contato)}</TableCell>}
+                  {visibleCols.mql                && <TableCell className="text-center"><BoolIcon val={lead.mql} /></TableCell>}
+                  {visibleCols.sql_flag           && <TableCell className="text-center"><BoolIcon val={lead.sql_flag} /></TableCell>}
+                  {visibleCols.utm_source         && <TableCell className="text-xs max-w-[120px] truncate">{lead.utm_source ?? '—'}</TableCell>}
                 </TableRow>
               ))}
             </TableBody>
