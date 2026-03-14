@@ -1,6 +1,5 @@
 import { useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ChevronRight } from "lucide-react";
 
 interface Lead {
   mql: boolean | null;
@@ -30,6 +29,11 @@ const STAGE_COLORS = [
   "#059669",
 ];
 
+const SVG_W = 520;
+const STAGE_H = 56;
+const RATE_GAP = 22;
+const MIN_W = 100;
+
 export function FunnelChart({ leads, funil, investimento }: FunnelChartProps) {
   const data = useMemo(() => {
     const filtered = funil && funil !== "all" ? leads.filter((l) => l.funil === funil) : leads;
@@ -55,6 +59,12 @@ export function FunnelChart({ leads, funil, investimento }: FunnelChartProps) {
   }, [leads, funil]);
 
   const inv = investimento ?? 0;
+  const maxVal = Math.max(data[0].value, 1);
+
+  // Width of each stage bar (proportional to count)
+  const widths = data.map((d) => Math.max((d.value / maxVal) * SVG_W, MIN_W));
+
+  const totalSvgH = data.length * STAGE_H + (data.length - 1) * RATE_GAP;
 
   return (
     <Card>
@@ -69,37 +79,81 @@ export function FunnelChart({ leads, funil, investimento }: FunnelChartProps) {
         </div>
       </CardHeader>
       <CardContent>
-        {/* Stages row */}
-        <div className="flex items-stretch gap-0 overflow-x-auto pb-2">
-          {data.map((stage, i) => {
-            const isLast = i === data.length - 1;
-            return (
-              <div key={stage.name} className="flex items-center shrink-0">
-                {/* Stage card */}
-                <div
-                  className="flex flex-col items-center justify-center rounded-lg px-4 py-3 min-w-[80px] border-t-4"
-                  style={{ borderColor: STAGE_COLORS[i] }}
-                >
-                  <span className="text-xs font-medium text-muted-foreground mb-1">
-                    {stage.name}
-                  </span>
-                  <span className="text-2xl font-bold text-foreground leading-none">
-                    {stage.value.toLocaleString("pt-BR")}
-                  </span>
-                </div>
+        <div className="w-full overflow-x-auto">
+          <svg
+            viewBox={`0 0 ${SVG_W} ${totalSvgH}`}
+            width="100%"
+            style={{ maxWidth: SVG_W, display: "block", margin: "0 auto" }}
+          >
+            {data.map((stage, i) => {
+              const topW = widths[i];
+              const bottomW = i < data.length - 1 ? widths[i + 1] : widths[i] * 0.88;
 
-                {/* Connector + rate */}
-                {!isLast && (
-                  <div className="flex flex-col items-center mx-1 shrink-0">
-                    <span className="text-[11px] font-semibold text-primary leading-none mb-0.5">
-                      {data[i + 1].rate}
-                    </span>
-                    <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                  </div>
-                )}
-              </div>
-            );
-          })}
+              const yTop = i * (STAGE_H + RATE_GAP);
+              const yBottom = yTop + STAGE_H;
+
+              const x1 = (SVG_W - topW) / 2;
+              const x2 = (SVG_W + topW) / 2;
+              const x3 = (SVG_W + bottomW) / 2;
+              const x4 = (SVG_W - bottomW) / 2;
+
+              const midX = SVG_W / 2;
+              const midY = yTop + STAGE_H / 2;
+
+              // Rate label between this stage and next
+              const rateY = yBottom + RATE_GAP / 2 + 1;
+              const nextRate = i < data.length - 1 ? data[i + 1].rate : "";
+
+              return (
+                <g key={stage.name}>
+                  {/* Trapezoid */}
+                  <polygon
+                    points={`${x1},${yTop} ${x2},${yTop} ${x3},${yBottom} ${x4},${yBottom}`}
+                    fill={STAGE_COLORS[i]}
+                  />
+
+                  {/* Stage name */}
+                  <text
+                    x={midX}
+                    y={midY - 9}
+                    textAnchor="middle"
+                    fill="white"
+                    fontSize="11"
+                    fontWeight="500"
+                    opacity="0.85"
+                  >
+                    {stage.name}
+                  </text>
+
+                  {/* Stage value */}
+                  <text
+                    x={midX}
+                    y={midY + 10}
+                    textAnchor="middle"
+                    fill="white"
+                    fontSize="18"
+                    fontWeight="700"
+                  >
+                    {stage.value.toLocaleString("pt-BR")}
+                  </text>
+
+                  {/* Conversion rate label between stages */}
+                  {nextRate && (
+                    <text
+                      x={midX}
+                      y={rateY}
+                      textAnchor="middle"
+                      fill="#6b7280"
+                      fontSize="11"
+                      fontWeight="600"
+                    >
+                      {nextRate}
+                    </text>
+                  )}
+                </g>
+              );
+            })}
+          </svg>
         </div>
 
         {/* CPL chips */}
