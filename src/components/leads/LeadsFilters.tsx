@@ -41,6 +41,20 @@ interface Props {
 
 const DATE_SHORTCUTS = [
   {
+    label: 'Hoje',
+    getRange: () => {
+      const today = new Date();
+      return { from: today, to: today };
+    },
+  },
+  {
+    label: 'Ontem',
+    getRange: () => {
+      const yesterday = subDays(new Date(), 1);
+      return { from: yesterday, to: yesterday };
+    },
+  },
+  {
     label: 'Últimos 7 dias',
     getRange: () => {
       const today = new Date();
