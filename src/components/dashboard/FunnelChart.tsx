@@ -32,7 +32,9 @@ const STAGE_COLORS = [
 const SVG_W = 520;
 const STAGE_H = 56;
 const RATE_GAP = 22;
-const MIN_W = 100;
+
+// Larguras fixas para cada etapa — formato de funil constante independente dos dados
+const FIXED_WIDTHS = [520, 437, 358, 290, 233, 187];
 
 export function FunnelChart({ leads, funil, investimento }: FunnelChartProps) {
   const data = useMemo(() => {
@@ -59,10 +61,7 @@ export function FunnelChart({ leads, funil, investimento }: FunnelChartProps) {
   }, [leads, funil]);
 
   const inv = investimento ?? 0;
-  const maxVal = Math.max(data[0].value, 1);
-
-  // Width of each stage bar (proportional to count)
-  const widths = data.map((d) => Math.max((d.value / maxVal) * SVG_W, MIN_W));
+  const widths = FIXED_WIDTHS;
 
   const totalSvgH = data.length * STAGE_H + (data.length - 1) * RATE_GAP;
 
