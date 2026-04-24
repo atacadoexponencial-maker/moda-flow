@@ -12,6 +12,12 @@ dist
 dist-ssr
 *.local
 
+# Local files
+.claude/
+plano-implementacao-crm.md
+prompts-lovable.md
+teste
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
