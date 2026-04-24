@@ -12,6 +12,10 @@ dist
 dist-ssr
 *.local
 
+# Environment variables
+.env
+.env.*
+
 # Local files
 .claude/
 plano-implementacao-crm.md
