@@ -39,7 +39,7 @@ Deno.serve(async (req) => {
 
     const { data: config } = await adminClient
       .from("meta_config")
-      .select("id")
+      .select("id, vault_secret_id")
       .limit(1)
       .single();
 
@@ -49,11 +49,18 @@ Deno.serve(async (req) => {
       });
     }
 
+    if (config.vault_secret_id) {
+      await adminClient.rpc("vault_delete_secret", {
+        secret_id: config.vault_secret_id,
+      });
+    }
+
     // Clear token and connection info
     await adminClient
       .from("meta_config")
       .update({
         access_token: null,
+        vault_secret_id: null,
         token_expires_at: null,
         meta_user_name: null,
         oauth_state: null,

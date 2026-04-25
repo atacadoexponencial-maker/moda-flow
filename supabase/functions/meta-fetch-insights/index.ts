@@ -40,7 +40,7 @@ Deno.serve(async (req) => {
     // 1. Get config with token
     const { data: config } = await adminClient
       .from("meta_config")
-      .select("id, access_token, ad_account_id, ativo, token_expires_at")
+      .select("id, vault_secret_id, ad_account_id, ativo, token_expires_at")
       .limit(1)
       .single();
 
@@ -58,14 +58,25 @@ Deno.serve(async (req) => {
       );
     }
 
-    if (!config.access_token) {
+    if (!config.vault_secret_id) {
       return new Response(
         JSON.stringify({ error: "Integração Meta não configurada. Reconecte em Configurações." }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    let accessToken: string = config.access_token;
+    const { data: vaultToken } = await adminClient.rpc("vault_read_secret", {
+      secret_id: config.vault_secret_id,
+    });
+
+    if (!vaultToken) {
+      return new Response(
+        JSON.stringify({ error: "Integração Meta não configurada. Reconecte em Configurações." }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    let accessToken: string = vaultToken;
 
     // 2. Check token expiration — renew if within 10 days
     if (config.token_expires_at) {
@@ -96,12 +107,15 @@ Deno.serve(async (req) => {
             const expiresIn = renewData.expires_in || 5184000;
             const newExpiresAt = new Date(Date.now() + expiresIn * 1000).toISOString();
 
+            await adminClient.rpc("vault_update_secret", {
+              secret_id: config.vault_secret_id,
+              new_secret: accessToken,
+              new_name: "meta_access_token",
+            });
+
             await adminClient
               .from("meta_config")
-              .update({
-                access_token: accessToken,
-                token_expires_at: newExpiresAt,
-              })
+              .update({ token_expires_at: newExpiresAt })
               .eq("id", config.id);
 
             console.log("Token renewed successfully, new expiry:", newExpiresAt);
