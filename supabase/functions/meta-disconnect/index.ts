@@ -59,7 +59,6 @@ Deno.serve(async (req) => {
     await adminClient
       .from("meta_config")
       .update({
-        access_token: null,
         vault_secret_id: null,
         token_expires_at: null,
         meta_user_name: null,
