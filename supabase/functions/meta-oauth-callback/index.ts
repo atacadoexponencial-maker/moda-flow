@@ -99,30 +99,18 @@ Deno.serve(async (req) => {
 
     const tokenExpiresAt = new Date(Date.now() + expiresIn * 1000).toISOString();
 
-    // Store token in Vault
-    const { data: existingConfig } = await adminClient
-      .from("meta_config")
-      .select("vault_secret_id")
-      .eq("id", config.id)
-      .single();
+    // Store token in Vault (upsert by name to avoid duplicate conflicts)
+    const { data: vaultSecretId, error: vaultErr } = await adminClient.rpc("vault_upsert_secret", {
+      p_secret: longLivedToken,
+      p_name: "meta_access_token",
+    });
 
-    let vaultSecretId = existingConfig?.vault_secret_id;
-
-    if (vaultSecretId) {
-      await adminClient.rpc("vault_update_secret", {
-        secret_id: vaultSecretId,
-        new_secret: longLivedToken,
-        new_name: "meta_access_token",
-      });
-    } else {
-      const { data: newSecretId } = await adminClient.rpc("vault_create_secret", {
-        new_secret: longLivedToken,
-        new_name: "meta_access_token",
-      });
-      vaultSecretId = newSecretId;
+    if (vaultErr || !vaultSecretId) {
+      console.error("vault_upsert_secret error:", vaultErr);
+      throw new Error("Falha ao salvar token no Vault");
     }
 
-    await adminClient
+    const { error: updateConfigErr } = await adminClient
       .from("meta_config")
       .update({
         vault_secret_id: vaultSecretId,
@@ -132,6 +120,11 @@ Deno.serve(async (req) => {
         ativo: true,
       })
       .eq("id", config.id);
+
+    if (updateConfigErr) {
+      console.error("meta_config update error:", updateConfigErr);
+      throw new Error("Falha ao salvar configuração");
+    }
 
     return Response.redirect(
       `${frontendBase}/configuracoes/meta-ads?meta=conectado`,
