@@ -99,14 +99,37 @@ Deno.serve(async (req) => {
 
     const tokenExpiresAt = new Date(Date.now() + expiresIn * 1000).toISOString();
 
-    // Store token directly in meta_config (protected by RLS + service role only)
+    // Store token in Vault
+    const { data: existingConfig } = await adminClient
+      .from("meta_config")
+      .select("vault_secret_id")
+      .eq("id", config.id)
+      .single();
+
+    let vaultSecretId = existingConfig?.vault_secret_id;
+
+    if (vaultSecretId) {
+      await adminClient.rpc("vault_update_secret", {
+        secret_id: vaultSecretId,
+        new_secret: longLivedToken,
+        new_name: "meta_access_token",
+      });
+    } else {
+      const { data: newSecretId } = await adminClient.rpc("vault_create_secret", {
+        new_secret: longLivedToken,
+        new_name: "meta_access_token",
+      });
+      vaultSecretId = newSecretId;
+    }
+
     await adminClient
       .from("meta_config")
       .update({
-        access_token: longLivedToken,
+        vault_secret_id: vaultSecretId,
         token_expires_at: tokenExpiresAt,
         meta_user_name: metaUserName,
         oauth_state: null,
+        ativo: true,
       })
       .eq("id", config.id);
 
