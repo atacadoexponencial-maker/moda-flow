@@ -38,13 +38,6 @@ Deno.serve(async (req) => {
 
     const { access_token, ad_account_id, ativo } = await req.json();
 
-    if (!access_token) {
-      return new Response(
-        JSON.stringify({ error: "access_token é obrigatório" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
     const adminClient = createClient(supabaseUrl, serviceRoleKey);
 
     // Check if config row exists
@@ -54,44 +47,46 @@ Deno.serve(async (req) => {
       .limit(1)
       .maybeSingle();
 
-    let vault_secret_id: string;
-
-    if (existing?.vault_secret_id) {
-      // Caso C — linha existe com vault_secret_id: atualizar secret existente no Vault
-      const { error: vaultError } = await adminClient.rpc("vault_update_secret", {
-        secret_id: existing.vault_secret_id,
-        new_secret: access_token,
-        new_name: "meta_access_token",
-      });
-      if (vaultError) {
-        console.error("Vault update error:", vaultError);
-        return new Response(
-          JSON.stringify({ error: "Falha ao atualizar token no Vault" }),
-          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-      vault_secret_id = existing.vault_secret_id;
-    } else {
-      // Caso A ou B — criar novo secret no Vault
-      const { data: newSecretId, error: vaultError } = await adminClient.rpc("vault_create_secret", {
-        new_secret: access_token,
-        new_name: "meta_access_token",
-      });
-      if (vaultError || !newSecretId) {
-        console.error("Vault create error:", vaultError);
-        return new Response(
-          JSON.stringify({ error: "Falha ao salvar token no Vault" }),
-          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-      vault_secret_id = newSecretId;
-    }
-
     const configPayload: Record<string, unknown> = {
       ad_account_id: ad_account_id ?? null,
       ativo: ativo ?? false,
-      vault_secret_id,
     };
+
+    // Only touch Vault if a new token was provided
+    if (access_token) {
+      let vault_secret_id: string;
+
+      if (existing?.vault_secret_id) {
+        const { error: vaultError } = await adminClient.rpc("vault_update_secret", {
+          secret_id: existing.vault_secret_id,
+          new_secret: access_token,
+          new_name: "meta_access_token",
+        });
+        if (vaultError) {
+          console.error("Vault update error:", vaultError);
+          return new Response(
+            JSON.stringify({ error: "Falha ao atualizar token no Vault" }),
+            { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+        vault_secret_id = existing.vault_secret_id;
+      } else {
+        const { data: newSecretId, error: vaultError } = await adminClient.rpc("vault_create_secret", {
+          new_secret: access_token,
+          new_name: "meta_access_token",
+        });
+        if (vaultError || !newSecretId) {
+          console.error("Vault create error:", vaultError);
+          return new Response(
+            JSON.stringify({ error: "Falha ao salvar token no Vault" }),
+            { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+        vault_secret_id = newSecretId;
+      }
+
+      configPayload.vault_secret_id = vault_secret_id;
+    }
 
     let result;
     if (existing) {
