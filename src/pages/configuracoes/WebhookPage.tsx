@@ -31,6 +31,10 @@ const FIELDS = [
   { field: "utm_campaign", alternatives: "campaign", description: "Campanha" },
   { field: "faturamento_mensal", alternatives: "faturamento", description: "Faturamento mensal" },
   { field: "oportunidade", alternatives: "valor", description: "Valor da oportunidade" },
+  { field: "utm_term", alternatives: "term", description: "Termo/palavra-chave da campanha" },
+  { field: "fbc", alternatives: "—", description: "Identificador de clique do Facebook (cookie _fbc)" },
+  { field: "gclid", alternatives: "—", description: "Identificador de clique do Google" },
+  { field: "external_id", alternatives: "—", description: "Identificador externo do lead na origem" },
 ];
 
 const EXAMPLE_TYPEBOT = JSON.stringify(

@@ -141,6 +141,10 @@ function getAutoMapping(headers: string[]): FieldMapping[] {
     else if (norm.includes("utm_source") || norm === "source") field = "utm_source";
     else if (norm.includes("utm_medium") || norm === "medium") field = "utm_medium";
     else if (norm.includes("utm_content")) field = "utm_content";
+    else if (norm.includes("utm_term") || norm === "term") field = "utm_term";
+    else if (norm === "fbc") field = "fbc";
+    else if (norm.includes("gclid")) field = "gclid";
+    else if (norm.includes("external_id") || norm.includes("external id")) field = "external_id";
     else if (norm.includes("utm") && (norm.includes("campaign") || norm.includes("campaing"))) field = "utm_campaign";
     else if (norm.includes("utm_posicion") || norm.includes("posicion")) field = "utm_posicion";
     else if (norm.includes("ultimo contato") || norm.includes("last contact")) field = "data_ultimo_contato";

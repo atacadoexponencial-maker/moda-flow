@@ -10,7 +10,32 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "14.1"
+    PostgrestVersion: "14.4"
+  }
+  graphql_public: {
+    Tables: {
+      [_ in never]: never
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      graphql: {
+        Args: {
+          extensions?: Json
+          operationName?: string
+          query?: string
+          variables?: Json
+        }
+        Returns: Json
+      }
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
   }
   public: {
     Tables: {
@@ -119,8 +144,11 @@ export type Database = {
           data_ra: string | null
           data_ultimo_contato: string | null
           email: string | null
+          external_id: string | null
           faturamento_mensal: string | null
+          fbc: string | null
           funil: string | null
+          gclid: string | null
           id: string
           instagram: string | null
           justificativa: string | null
@@ -142,6 +170,7 @@ export type Database = {
           utm_medium: string | null
           utm_posicion: string | null
           utm_source: string | null
+          utm_term: string | null
           whatsapp: string | null
         }
         Insert: {
@@ -153,8 +182,11 @@ export type Database = {
           data_ra?: string | null
           data_ultimo_contato?: string | null
           email?: string | null
+          external_id?: string | null
           faturamento_mensal?: string | null
+          fbc?: string | null
           funil?: string | null
+          gclid?: string | null
           id?: string
           instagram?: string | null
           justificativa?: string | null
@@ -176,6 +208,7 @@ export type Database = {
           utm_medium?: string | null
           utm_posicion?: string | null
           utm_source?: string | null
+          utm_term?: string | null
           whatsapp?: string | null
         }
         Update: {
@@ -187,8 +220,11 @@ export type Database = {
           data_ra?: string | null
           data_ultimo_contato?: string | null
           email?: string | null
+          external_id?: string | null
           faturamento_mensal?: string | null
+          fbc?: string | null
           funil?: string | null
+          gclid?: string | null
           id?: string
           instagram?: string | null
           justificativa?: string | null
@@ -210,6 +246,7 @@ export type Database = {
           utm_medium?: string | null
           utm_posicion?: string | null
           utm_source?: string | null
+          utm_term?: string | null
           whatsapp?: string | null
         }
         Relationships: []
@@ -252,7 +289,6 @@ export type Database = {
       }
       meta_config: {
         Row: {
-          access_token: string | null
           ad_account_id: string | null
           ativo: boolean
           created_at: string
@@ -263,7 +299,6 @@ export type Database = {
           vault_secret_id: string | null
         }
         Insert: {
-          access_token?: string | null
           ad_account_id?: string | null
           ativo?: boolean
           created_at?: string
@@ -274,7 +309,6 @@ export type Database = {
           vault_secret_id?: string | null
         }
         Update: {
-          access_token?: string | null
           ad_account_id?: string | null
           ativo?: boolean
           created_at?: string
@@ -388,6 +422,10 @@ export type Database = {
       vault_update_secret: {
         Args: { new_name: string; new_secret: string; secret_id: string }
         Returns: undefined
+      }
+      vault_upsert_secret: {
+        Args: { p_name: string; p_secret: string }
+        Returns: string
       }
     }
     Enums: {
@@ -517,6 +555,9 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
+  graphql_public: {
+    Enums: {},
+  },
   public: {
     Enums: {},
   },
