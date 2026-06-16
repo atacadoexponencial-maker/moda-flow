@@ -20,3 +20,8 @@ verify_jwt = false
 
 [functions.manage-users]
 verify_jwt = false
+
+# webhook-lead autentica via header x-webhook-token (validado contra webhook_configs),
+# então não exige JWT do Supabase — permite que sistemas externos entreguem leads.
+[functions.webhook-lead]
+verify_jwt = false
