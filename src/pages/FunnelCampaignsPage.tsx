@@ -34,7 +34,7 @@ const FunnelCampaignsPage = () => {
     try {
       const [funnelsRes, campaignsRes, cacheRes] = await Promise.all([
         supabase.from("leads").select("funil").not("funil", "is", null),
-        supabase.from("funnel_campaigns" as any).select("*"),
+        supabase.from("funnel_campaigns").select("*"),
         supabase.from("meta_ads_cache").select("campaign_id, campaign_name"),
       ]);
 
@@ -44,7 +44,7 @@ const FunnelCampaignsPage = () => {
       ] as string[];
       setFunnels(uniqueFunnels.sort());
 
-      setFunnelCampaigns((campaignsRes.data as any as FunnelCampaign[]) || []);
+      setFunnelCampaigns(campaignsRes.data || []);
 
       // Distinct campaigns from cache
       const campaignMap = new Map<string, string>();
@@ -74,11 +74,11 @@ const FunnelCampaignsPage = () => {
     const campaign = availableCampaigns.find((c) => c.campaign_id === campaignId);
     if (!campaign) return;
 
-    const { error } = await supabase.from("funnel_campaigns" as any).insert({
+    const { error } = await supabase.from("funnel_campaigns").insert({
       funil,
       campaign_id: campaign.campaign_id,
       campaign_name: campaign.campaign_name,
-    } as any);
+    });
 
     if (error) {
       toast.error("Erro ao vincular campanha");
@@ -91,7 +91,7 @@ const FunnelCampaignsPage = () => {
   };
 
   const handleRemove = async (id: string) => {
-    const { error } = await supabase.from("funnel_campaigns" as any).delete().eq("id", id);
+    const { error } = await supabase.from("funnel_campaigns").delete().eq("id", id);
     if (error) {
       toast.error("Erro ao remover vínculo");
       return;

@@ -6,6 +6,22 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+interface MetaInsightRow {
+  date_start: string;
+  date_stop: string;
+  campaign_id: string;
+  campaign_name: string;
+  spend: number;
+  impressions: number;
+  clicks: number;
+}
+
+interface MetaApiResponse {
+  data?: Array<Record<string, string>>;
+  error?: { message?: string };
+  paging?: { next?: string };
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -137,14 +153,14 @@ Deno.serve(async (req) => {
       `&level=campaign` +
       `&limit=500`;
 
-    let allRows: any[] = [];
+    const allRows: MetaInsightRow[] = [];
     let nextUrl: string | null = insightsUrl;
 
     while (nextUrl) {
       const response: Response = await fetch(nextUrl, {
         headers: { Authorization: `Bearer ${accessToken}` },
       });
-      const json: any = await response.json();
+      const json: MetaApiResponse = await response.json();
 
       if (json.error) {
         console.error("Meta API error:", json.error);

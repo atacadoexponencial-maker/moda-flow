@@ -6,7 +6,7 @@ import type { LeadsFilterState } from '@/components/leads/LeadsFilters';
 type Lead = Tables<'leads'>;
 
 function getEntrada(lead: Lead): string {
-  return (lead as any).data_criada ?? lead.created_at?.slice(0, 10) ?? '';
+  return lead.data_criada ?? lead.created_at?.slice(0, 10) ?? '';
 }
 
 export function useLeadsFilterOptions(leads: Lead[]) {

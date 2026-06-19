@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { getErrorMessage } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -41,7 +42,7 @@ const UsersPage = () => {
     try {
       const [usersRes, rolesRes, authRes] = await Promise.all([
         supabase.functions.invoke("manage-users", { body: { action: "list" } }),
-        supabase.from("user_roles" as any).select("user_id, role"),
+        supabase.from("user_roles").select("user_id, role"),
         supabase.auth.getUser(),
       ]);
 
@@ -49,7 +50,7 @@ const UsersPage = () => {
       if (usersRes.data?.error) throw new Error(usersRes.data.error);
 
       const rolesMap = new Map<string, string>();
-      for (const r of (rolesRes.data as any[]) || []) {
+      for (const r of rolesRes.data || []) {
         rolesMap.set(r.user_id, r.role);
       }
 
@@ -59,14 +60,15 @@ const UsersPage = () => {
         setMyRole(rolesMap.get(currentUserId) ?? null);
       }
 
-      const merged: UserItem[] = (usersRes.data.users || []).map((u: any) => ({
+      type AuthUser = Omit<UserItem, "role">;
+      const merged: UserItem[] = ((usersRes.data.users || []) as AuthUser[]).map((u) => ({
         ...u,
         role: rolesMap.get(u.id) || null,
       }));
 
       setUsers(merged);
-    } catch (err: any) {
-      toast.error(err.message || "Erro ao carregar usuários");
+    } catch (err) {
+      toast.error(getErrorMessage(err, "Erro ao carregar usuários"));
     } finally {
       setLoading(false);
     }
@@ -90,8 +92,8 @@ const UsersPage = () => {
       setInviteEmail("");
       setDialogOpen(false);
       loadUsers();
-    } catch (err: any) {
-      toast.error(err.message || "Erro ao enviar convite");
+    } catch (err) {
+      toast.error(getErrorMessage(err, "Erro ao enviar convite"));
     } finally {
       setInviting(false);
     }
@@ -102,28 +104,28 @@ const UsersPage = () => {
       const existing = users.find((u) => u.id === userId);
       if (existing?.role) {
         await supabase
-          .from("user_roles" as any)
-          .update({ role: newRole } as any)
+          .from("user_roles")
+          .update({ role: newRole })
           .eq("user_id", userId);
       } else {
         await supabase
-          .from("user_roles" as any)
-          .insert({ user_id: userId, role: newRole } as any);
+          .from("user_roles")
+          .insert({ user_id: userId, role: newRole });
       }
 
       setUsers((prev) =>
         prev.map((u) => (u.id === userId ? { ...u, role: newRole } : u))
       );
       toast.success("Role atualizada");
-    } catch (err: any) {
-      toast.error(err.message || "Erro ao atualizar role");
+    } catch (err) {
+      toast.error(getErrorMessage(err, "Erro ao atualizar role"));
     }
   };
 
   const handleDelete = async (userId: string) => {
     setDeletingId(userId);
     try {
-      await supabase.from("user_roles" as any).delete().eq("user_id", userId);
+      await supabase.from("user_roles").delete().eq("user_id", userId);
 
       const { data, error } = await supabase.functions.invoke("manage-users", {
         body: { action: "delete", user_id: userId },
@@ -133,8 +135,8 @@ const UsersPage = () => {
 
       toast.success("Usuário removido");
       setUsers((prev) => prev.filter((u) => u.id !== userId));
-    } catch (err: any) {
-      toast.error(err.message || "Erro ao remover usuário");
+    } catch (err) {
+      toast.error(getErrorMessage(err, "Erro ao remover usuário"));
     } finally {
       setDeletingId(null);
     }

@@ -90,8 +90,8 @@ const WebhookPage = () => {
         .join("");
 
       const { error } = await supabase
-        .from("webhook_configs" as any)
-        .update({ token: newToken } as any)
+        .from("webhook_configs")
+        .update({ token: newToken })
         .eq("id", config.id);
 
       if (error) throw error;

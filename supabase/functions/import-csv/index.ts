@@ -107,7 +107,8 @@ interface FieldMapping {
 function getAutoMapping(headers: string[]): FieldMapping[] {
   const normalizeHeader = (raw: string): string => {
     return raw
-      .replace(/[\u{1F000}-\u{1FFFF}\u{2600}-\u{27BF}\u{FE00}-\u{FE0F}\u{200D}\u{20E3}\u{E0020}-\u{E007F}\u{2702}-\u{27B0}\u{1FA00}-\u{1FA6F}\u{1FA70}-\u{1FAFF}\u{231A}-\u{23F3}\u{2328}\u{23CF}\u{23E9}-\u{23F3}\u{23F8}-\u{23FA}]/gu, "")
+      .replace(/\p{Extended_Pictographic}/gu, "") // emoji
+      .replace(/\u200D|\u20E3|\uFE0F/gu, "") // ZWJ, keycap, variation selector
       .replace(/\(.*?\)/g, "")
       .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
       .replace(/[^a-zA-Z0-9_\- ]/g, "")
@@ -249,7 +250,7 @@ Deno.serve(async (req) => {
       const chunk = rows.slice(i, i + batch);
       const records = chunk.map(r => buildRecord(r, mappings)).filter(Boolean);
       if (records.length) {
-        const { error } = await supabase.from("leads").insert(records as any[]);
+        const { error } = await supabase.from("leads").insert(records as Record<string, unknown>[]);
         if (error) {
           errorDetails.push(`Batch ${i}: ${error.message}`);
           errors += chunk.length;

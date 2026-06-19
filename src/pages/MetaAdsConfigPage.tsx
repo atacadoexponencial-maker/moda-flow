@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { getErrorMessage } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -59,17 +60,17 @@ const MetaAdsConfigPage = () => {
   const loadConfig = async () => {
     try {
       const { data, error } = await supabase
-        .from("meta_config_safe" as any)
+        .from("meta_config_safe")
         .select("*")
         .limit(1)
         .single();
 
       if (data && !error) {
-        setAdAccountId((data as any).ad_account_id ?? "");
-        setAtivo((data as any).ativo ?? false);
-        setTokenConfigurado((data as any).token_configurado ?? false);
-        setMetaUserName((data as any).meta_user_name ?? null);
-        setTokenExpiresAt((data as any).token_expires_at ?? null);
+        setAdAccountId(data.ad_account_id ?? "");
+        setAtivo(data.ativo ?? false);
+        setTokenConfigurado(data.token_configurado ?? false);
+        setMetaUserName(data.meta_user_name ?? null);
+        setTokenExpiresAt(data.token_expires_at ?? null);
       }
     } catch {
       // No config yet
@@ -105,8 +106,8 @@ const MetaAdsConfigPage = () => {
       if (data?.url) {
         window.location.href = data.url;
       }
-    } catch (err: any) {
-      toast.error(err.message || "Erro ao iniciar conexão");
+    } catch (err) {
+      toast.error(getErrorMessage(err, "Erro ao iniciar conexão"));
       setConnecting(false);
     }
   };
@@ -123,8 +124,8 @@ const MetaAdsConfigPage = () => {
       setMetaUserName(null);
       setTokenExpiresAt(null);
       await loadConfig();
-    } catch (err: any) {
-      toast.error(err.message || "Erro ao desconectar");
+    } catch (err) {
+      toast.error(getErrorMessage(err, "Erro ao desconectar"));
     } finally {
       setDisconnecting(false);
     }
@@ -140,8 +141,8 @@ const MetaAdsConfigPage = () => {
       if (data?.error) throw new Error(data.error);
       toast.success("Configuração salva com sucesso");
       await loadConfig();
-    } catch (err: any) {
-      toast.error(err.message || "Erro ao salvar configuração");
+    } catch (err) {
+      toast.error(getErrorMessage(err, "Erro ao salvar configuração"));
     } finally {
       setSaving(false);
     }
@@ -155,8 +156,8 @@ const MetaAdsConfigPage = () => {
       if (data?.error) throw new Error(data.error);
       toast.success(`${data.campaigns_synced} registros sincronizados`);
       await loadSyncInfo();
-    } catch (err: any) {
-      toast.error(err.message || "Erro ao sincronizar");
+    } catch (err) {
+      toast.error(getErrorMessage(err, "Erro ao sincronizar"));
     } finally {
       setSyncing(false);
     }

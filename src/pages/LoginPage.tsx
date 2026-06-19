@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { getErrorMessage } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -25,8 +26,8 @@ const LoginPage = () => {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
       }
-    } catch (error: any) {
-      toast.error(error.message || 'Erro ao autenticar');
+    } catch (error) {
+      toast.error(getErrorMessage(error, 'Erro ao autenticar'));
     } finally {
       setLoading(false);
     }

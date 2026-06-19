@@ -48,12 +48,12 @@ function slugify(s: string) {
 }
 
 async function fetchFieldDefs(): Promise<FieldDef[]> {
-  const { data, error } = await (supabase as any)
+  const { data, error } = await supabase
     .from('lead_field_definitions')
     .select('*')
     .order('sort_order');
   if (error) throw error;
-  return data ?? [];
+  return (data ?? []) as FieldDef[];
 }
 
 export default function CamposPage() {
@@ -79,7 +79,7 @@ export default function CamposPage() {
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ['lead-field-definitions'] });
 
   const toggleVisible = async (field: FieldDef) => {
-    const { error } = await (supabase as any)
+    const { error } = await supabase
       .from('lead_field_definitions')
       .update({ visible: !field.visible })
       .eq('id', field.id);
@@ -119,7 +119,7 @@ export default function CamposPage() {
     setSaving(true);
     try {
       if (editingField) {
-        const { error } = await (supabase as any)
+        const { error } = await supabase
           .from('lead_field_definitions')
           .update({
             label: form.label.trim(),
@@ -131,7 +131,7 @@ export default function CamposPage() {
       } else {
         const key = slugify(form.label);
         const maxOrder = fields.reduce((m, f) => Math.max(m, f.sort_order), -1);
-        const { error } = await (supabase as any)
+        const { error } = await supabase
           .from('lead_field_definitions')
           .insert({
             key,
@@ -156,7 +156,7 @@ export default function CamposPage() {
 
   const handleDelete = async () => {
     if (!deleteTarget) return;
-    const { error } = await (supabase as any)
+    const { error } = await supabase
       .from('lead_field_definitions')
       .delete()
       .eq('id', deleteTarget.id);

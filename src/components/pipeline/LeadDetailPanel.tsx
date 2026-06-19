@@ -429,7 +429,7 @@ export function LeadDetailPanel({ lead, open, onClose }: LeadDetailPanelProps) {
             />
             <div className="space-y-0.5">
               <p className="text-xs text-muted-foreground">Data de Entrada</p>
-              <div className="text-sm text-foreground">{formatDate((localLead as any).data_criada ?? localLead.created_at?.slice(0, 10))}</div>
+              <div className="text-sm text-foreground">{formatDate(localLead.data_criada ?? localLead.created_at?.slice(0, 10))}</div>
             </div>
             <InlineTextField label="Produto" value={localLead.produto} fieldKey="produto" onSave={saveTextField} saving={savingField === 'produto'} />
             <InlineTextField label="Funil" value={localLead.funil} fieldKey="funil" onSave={saveTextField} saving={savingField === 'funil'} />

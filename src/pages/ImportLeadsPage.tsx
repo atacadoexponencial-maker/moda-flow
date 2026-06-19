@@ -6,6 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Upload, FileSpreadsheet, ArrowLeft } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import type { TablesInsert } from "@/integrations/supabase/types";
 import { toast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
 
@@ -81,7 +82,8 @@ function getTypeHint(raw: string): string | null {
 /** Normalize a CSV header for fuzzy matching: strip emoji, parenthetical type hints, accents */
 function normalizeHeader(raw: string): string {
   return raw
-    .replace(/[\u{1F000}-\u{1FFFF}\u{2600}-\u{27BF}\u{FE00}-\u{FE0F}\u{200D}\u{20E3}\u{E0020}-\u{E007F}\u{2702}-\u{27B0}\u{1FA00}-\u{1FA6F}\u{1FA70}-\u{1FAFF}\u{231A}-\u{23F3}\u{2328}\u{23CF}\u{23E9}-\u{23F3}\u{23F8}-\u{23FA}]/gu, "") // emoji
+    .replace(/\p{Extended_Pictographic}/gu, "") // emoji
+    .replace(/\u200D|\u20E3|\uFE0F/gu, "") // ZWJ, keycap, variation selector
     .replace(/\(.*?\)/g, "") // (short text), (date), etc.
     .normalize("NFD").replace(/[\u0300-\u036f]/g, "") // accents
     .replace(/[^a-zA-Z0-9_\- ]/g, "") // special chars
@@ -325,7 +327,7 @@ export default function ImportLeadsPage() {
       const chunk = rows.slice(i, i + batch);
       const records = chunk.map(r => buildRecord(r, headers, mapping)).filter(Boolean);
       if (records.length) {
-        const { error } = await supabase.from("leads").insert(records as any[]);
+        const { error } = await supabase.from("leads").insert(records as TablesInsert<"leads">[]);
         if (error) { errors += chunk.length; } else { success += records.length; errors += chunk.length - records.length; }
       } else {
         errors += chunk.length;

@@ -54,7 +54,7 @@ const FATURAMENTO_OPTIONS = [
 ];
 
 function getEntrada(lead: Lead): string {
-  return (lead as any).data_criada ?? lead.created_at?.slice(0, 10) ?? '';
+  return lead.data_criada ?? lead.created_at?.slice(0, 10) ?? '';
 }
 
 function formatDate(d: string | null) {
@@ -232,7 +232,7 @@ export default function LeadsPage() {
   const { data: fieldDefs = FALLBACK_FIELDS } = useQuery<FieldDef[]>({
     queryKey: ['lead-field-definitions'],
     queryFn: async () => {
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from('lead_field_definitions')
         .select('*')
         .order('sort_order');
@@ -473,7 +473,7 @@ export default function LeadsPage() {
                   {effectiveVisible('utm_source')         && <TableCell className="text-xs max-w-[120px] truncate">{lead.utm_source ?? '—'}</TableCell>}
                   {fieldDefs.filter(f => !f.is_system && effectiveVisible(f.key)).map(f => (
                     <TableCell key={f.key} className="text-xs max-w-[150px] truncate">
-                      {((lead as any).custom_data?.[f.key]) ?? '—'}
+                      {(lead.custom_data as Record<string, string> | null)?.[f.key] ?? '—'}
                     </TableCell>
                   ))}
                 </TableRow>

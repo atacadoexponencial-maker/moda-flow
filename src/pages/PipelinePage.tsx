@@ -17,6 +17,7 @@ import {
   useSensors,
   type DragStartEvent,
   type DragEndEvent,
+  type DragOverEvent,
 } from '@dnd-kit/core';
 import { useDraggable, useDroppable } from '@dnd-kit/core';
 import { MoveDialog, type MoveDialogType } from '@/components/pipeline/MoveDialog';
@@ -217,7 +218,7 @@ export default function PipelinePage() {
     setActiveLead(lead ?? null);
   };
 
-  const handleDragOver = (event: any) => {
+  const handleDragOver = (event: DragOverEvent) => {
     setOverColumn(event.over?.id as string ?? null);
   };
 

@@ -73,11 +73,11 @@ export function LeadSourceChart({ leads }: LeadSourceChartProps) {
     return { pieData: pie, tableData: rows };
   }, [leads]);
 
-  const renderLegend = (props: any) => {
+  const renderLegend = (props: { payload?: Array<{ color?: string; value?: string }> }) => {
     const { payload } = props;
     return (
       <div className="flex flex-wrap justify-center gap-x-4 gap-y-1 mt-2">
-        {(payload || []).map((entry: any, i: number) => (
+        {(payload || []).map((entry, i) => (
           <span key={i} className="flex items-center gap-1.5 text-xs text-muted-foreground">
             <span
               className="inline-block h-2.5 w-2.5 rounded-full shrink-0"
