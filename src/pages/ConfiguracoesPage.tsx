@@ -2,7 +2,7 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { FileSpreadsheet, Megaphone, Link2, Users, Columns, Webhook } from "lucide-react";
+import { FileSpreadsheet, Megaphone, Link2, Users, Columns, Webhook, MessageCircle } from "lucide-react";
 import { useWebhookConfig } from "@/hooks/useWebhookConfig";
 
 const ConfiguracoesPage = () => {
@@ -44,6 +44,17 @@ const ConfiguracoesPage = () => {
           <div>
             <p className="font-medium text-foreground">Integração Meta Ads</p>
             <p className="text-sm text-muted-foreground">Configure o acesso à API do Meta para sincronizar dados de investimento.</p>
+          </div>
+          <Button variant="outline" className="ml-auto" size="sm">Configurar</Button>
+        </CardContent>
+      </Card>
+
+      <Card className="cursor-pointer hover:border-primary/50 transition-colors" onClick={() => navigate("/configuracoes/whatsapp")}>
+        <CardContent className="flex items-center gap-4 py-5">
+          <MessageCircle className="h-8 w-8 text-primary" />
+          <div>
+            <p className="font-medium text-foreground">Integração WhatsApp</p>
+            <p className="text-sm text-muted-foreground">Conecte sua conta WhatsApp Business para enviar e receber mensagens com seus leads.</p>
           </div>
           <Button variant="outline" className="ml-auto" size="sm">Configurar</Button>
         </CardContent>

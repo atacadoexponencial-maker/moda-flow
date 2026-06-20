@@ -13,6 +13,7 @@ import DashboardPage from "@/pages/DashboardPage";
 import ConfiguracoesPage from "@/pages/ConfiguracoesPage";
 import ImportLeadsPage from "@/pages/ImportLeadsPage";
 import MetaAdsConfigPage from "@/pages/MetaAdsConfigPage";
+import WhatsAppConfigPage from "@/pages/WhatsAppConfigPage";
 import FunnelCampaignsPage from "@/pages/FunnelCampaignsPage";
 import UsersPage from "@/pages/UsersPage";
 import CamposPage from "@/pages/CamposPage";
@@ -45,6 +46,7 @@ function AuthenticatedRoutes() {
         <Route path="/configuracoes" element={<ConfiguracoesPage />} />
         <Route path="/configuracoes/importar" element={<ImportLeadsPage />} />
         <Route path="/configuracoes/meta-ads" element={<MetaAdsConfigPage />} />
+        <Route path="/configuracoes/whatsapp" element={<WhatsAppConfigPage />} />
         <Route path="/configuracoes/vincular-campanhas" element={<FunnelCampaignsPage />} />
         <Route path="/configuracoes/webhook" element={<WebhookPage />} />
         <Route path="/configuracoes/usuarios" element={<UsersPage />} />

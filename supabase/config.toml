@@ -25,3 +25,23 @@ verify_jwt = false
 # então não exige JWT do Supabase — permite que sistemas externos entreguem leads.
 [functions.webhook-lead]
 verify_jwt = false
+
+# Funções autenticadas do WhatsApp: validam o Bearer token manualmente via
+# auth.getUser() dentro da função (mesmo padrão das funções meta-*).
+[functions.whatsapp-signup-start]
+verify_jwt = false
+
+[functions.whatsapp-signup-exchange]
+verify_jwt = false
+
+[functions.whatsapp-test-connection]
+verify_jwt = false
+
+[functions.whatsapp-disconnect]
+verify_jwt = false
+
+# whatsapp-webhook é o endpoint público do WhatsApp Cloud API: handshake GET
+# (hub.verify_token) e validação de assinatura X-Hub-Signature-256 no POST,
+# então não exige JWT do Supabase — permite que o Meta entregue eventos.
+[functions.whatsapp-webhook]
+verify_jwt = false
