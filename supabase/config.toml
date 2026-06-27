@@ -21,6 +21,11 @@ verify_jwt = false
 [functions.manage-users]
 verify_jwt = false
 
+# clear-crm valida o Bearer token manualmente via auth.getUser() e exige
+# role = 'admin' em user_roles antes de apagar toda a base (mesmo padrão das demais).
+[functions.clear-crm]
+verify_jwt = false
+
 # webhook-lead autentica via header x-webhook-token (validado contra webhook_configs),
 # então não exige JWT do Supabase — permite que sistemas externos entreguem leads.
 [functions.webhook-lead]

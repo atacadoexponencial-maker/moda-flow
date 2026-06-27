@@ -4,6 +4,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { FileSpreadsheet, Megaphone, Link2, Users, Columns, Webhook, MessageCircle } from "lucide-react";
 import { useWebhookConfig } from "@/hooks/useWebhookConfig";
+import LimparCrmCard from "@/components/configuracoes/LimparCrmCard";
 
 const ConfiguracoesPage = () => {
   const navigate = useNavigate();
@@ -97,6 +98,8 @@ const ConfiguracoesPage = () => {
           <Button variant="outline" className="ml-auto" size="sm">Configurar</Button>
         </CardContent>
       </Card>
+
+      <LimparCrmCard />
     </div>
   );
 };
