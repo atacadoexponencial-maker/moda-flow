@@ -27,6 +27,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useQueryClient } from '@tanstack/react-query';
 import { cn } from '@/lib/utils';
 import { LeadActivities } from '@/components/pipeline/LeadActivities';
+import { LeadTouches } from '@/components/pipeline/LeadTouches';
 import { useIsMobile } from '@/hooks/use-mobile';
 import type { Tables } from '@/integrations/supabase/types';
 
@@ -465,6 +466,11 @@ export function LeadDetailPanel({ lead, open, onClose }: LeadDetailPanelProps) {
             <InlineTextField label="utm_campaign" value={localLead.utm_campaign} fieldKey="utm_campaign" onSave={saveTextField} saving={savingField === 'utm_campaign'} />
             <InlineTextField label="utm_content" value={localLead.utm_content} fieldKey="utm_content" onSave={saveTextField} saving={savingField === 'utm_content'} />
           </div>
+
+          <Separator />
+
+          {/* Jornada (touches) */}
+          <LeadTouches leadId={localLead.id} />
 
           <Separator />
 
