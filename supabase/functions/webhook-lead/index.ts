@@ -29,6 +29,9 @@ function mapPayloadToLead(body: Record<string, unknown>): Record<string, unknown
   record.fbc = get("fbc") ?? null;
   record.gclid = get("gclid") ?? null;
   record.external_id = get("external_id") ?? null;
+  record.meta_campaign_id = get("meta_campaign_id", "campaign_id") ?? null;
+  record.meta_ad_id = get("meta_ad_id", "ad_id") ?? null;
+  record.meta_lead_id = get("meta_lead_id", "leadgen_id") ?? null;
   record.faturamento_mensal = get("faturamento_mensal", "faturamento") ?? null;
   record.justificativa = get("justificativa", "motivo") ?? null;
   record.objetivo = get("objetivo", "meta") ?? null;

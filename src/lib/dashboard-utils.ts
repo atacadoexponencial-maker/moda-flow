@@ -52,3 +52,57 @@ export function getLeadDate(lead: { data_criada?: string | null; created_at: str
 export function isInRange(date: Date, range: PeriodRange): boolean {
   return date >= startOfDay(range.from) && date <= range.to;
 }
+
+export interface Touch {
+  funil: string | null;
+  is_aquisicao: boolean;
+  created_at: string;
+}
+
+export interface FunnelTouchStats {
+  funil: string;
+  novos: number;
+  retornos: number;
+  total: number;
+}
+
+export interface TouchAggregation {
+  porFunil: FunnelTouchStats[];
+  totais: { novos: number; retornos: number; total: number };
+}
+
+/**
+ * Agrega touches por funil dentro do período, separando aquisições (leads
+ * novos no CRM) de retornos (touches de contatos já existentes).
+ */
+export function aggregateTouchesByFunnel(touches: Touch[], range: PeriodRange): TouchAggregation {
+  const map = new Map<string, { novos: number; retornos: number }>();
+  let totNovos = 0;
+  let totRetornos = 0;
+
+  for (const t of touches) {
+    if (!isInRange(startOfDay(new Date(t.created_at)), range)) continue;
+    const funil = t.funil || "(sem funil)";
+    const entry = map.get(funil) ?? { novos: 0, retornos: 0 };
+    if (t.is_aquisicao) {
+      entry.novos++;
+      totNovos++;
+    } else {
+      entry.retornos++;
+      totRetornos++;
+    }
+    map.set(funil, entry);
+  }
+
+  const porFunil: FunnelTouchStats[] = Array.from(map, ([funil, v]) => ({
+    funil,
+    novos: v.novos,
+    retornos: v.retornos,
+    total: v.novos + v.retornos,
+  })).sort((a, b) => b.total - a.total || a.funil.localeCompare(b.funil));
+
+  return {
+    porFunil,
+    totais: { novos: totNovos, retornos: totRetornos, total: totNovos + totRetornos },
+  };
+}

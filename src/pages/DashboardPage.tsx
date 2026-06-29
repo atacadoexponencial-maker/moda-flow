@@ -9,6 +9,8 @@ import {
   getPeriodRange,
   getLeadDate,
   isInRange,
+  aggregateTouchesByFunnel,
+  type Touch,
 } from "@/lib/dashboard-utils";
 import { FunnelChart } from "@/components/dashboard/FunnelChart";
 import { LeadSourceChart } from "@/components/dashboard/LeadSourceChart";
@@ -164,20 +166,23 @@ const DashboardPage = () => {
   const [leads, setLeads] = useState<Lead[]>([]);
   const [funnelCampaigns, setFunnelCampaigns] = useState<FunnelCampaign[]>([]);
   const [metaAds, setMetaAds] = useState<MetaAdsRow[]>([]);
+  const [touches, setTouches] = useState<Touch[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const load = async () => {
-      const [leadsRes, fcRes, metaRes] = await Promise.all([
+      const [leadsRes, fcRes, metaRes, touchesRes] = await Promise.all([
         supabase
           .from("leads")
           .select("data_criada, created_at, mql, sql_flag, ra_flag, rr_flag, status, oportunidade, arrecadado, utm_source, funil"),
         supabase.from("funnel_campaigns").select("funil, campaign_id"),
         supabase.from("meta_ads_cache").select("campaign_id, spend, date_start, date_stop"),
+        supabase.from("lead_touches").select("funil, is_aquisicao, created_at"),
       ]);
       setLeads((leadsRes.data as Lead[]) || []);
       setFunnelCampaigns((fcRes.data as FunnelCampaign[]) || []);
       setMetaAds((metaRes.data as MetaAdsRow[]) || []);
+      setTouches((touchesRes.data as Touch[]) || []);
       setLoading(false);
     };
     load();
@@ -197,6 +202,11 @@ const DashboardPage = () => {
     const { current } = getPeriodRange(period);
     return calcSpendForRange(metaAds, funnelCampaigns, current.from, current.to, selectedFunil);
   }, [metaAds, funnelCampaigns, period, selectedFunil]);
+
+  const touchStats = useMemo(() => {
+    const { current } = getPeriodRange(period);
+    return aggregateTouchesByFunnel(touches, current);
+  }, [touches, period]);
 
   const kpis = useMemo(() => {
     const { current, previous } = getPeriodRange(period);
@@ -312,6 +322,53 @@ const DashboardPage = () => {
 
       {!loading && (
         <FunnelChart leads={currentLeadsForCharts} funil={selectedFunil} investimento={investimento} />
+      )}
+
+      {!loading && (
+        <Card>
+          <CardContent className="pt-4 pb-4 px-4">
+            <div className="mb-3">
+              <h3 className="text-sm font-semibold text-foreground">Aquisições vs Retornos por funil</h3>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Novos = primeira vez no CRM (aquisição). Retornos = contato que já existia voltou a engajar.
+              </p>
+            </div>
+            {touchStats.porFunil.length === 0 ? (
+              <p className="text-sm text-muted-foreground py-4">Nenhum touch no período.</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="text-left text-xs text-muted-foreground border-b">
+                      <th className="py-2 pr-4 font-medium">Funil</th>
+                      <th className="py-2 px-4 font-medium text-right">Novos</th>
+                      <th className="py-2 px-4 font-medium text-right">Retornos</th>
+                      <th className="py-2 pl-4 font-medium text-right">Total</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {touchStats.porFunil.map((f) => (
+                      <tr key={f.funil} className="border-b last:border-0">
+                        <td className="py-2 pr-4 text-foreground">{f.funil}</td>
+                        <td className="py-2 px-4 text-right font-medium text-emerald-600">{f.novos}</td>
+                        <td className="py-2 px-4 text-right text-muted-foreground">{f.retornos}</td>
+                        <td className="py-2 pl-4 text-right font-medium text-foreground">{f.total}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                  <tfoot>
+                    <tr className="border-t-2 font-semibold">
+                      <td className="py-2 pr-4 text-foreground">Total</td>
+                      <td className="py-2 px-4 text-right text-emerald-600">{touchStats.totais.novos}</td>
+                      <td className="py-2 px-4 text-right text-muted-foreground">{touchStats.totais.retornos}</td>
+                      <td className="py-2 pl-4 text-right text-foreground">{touchStats.totais.total}</td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+            )}
+          </CardContent>
+        </Card>
       )}
 
       {!loading && (

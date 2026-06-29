@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { startOfDay } from "date-fns";
-import { getLeadDate, isInRange, getPeriodRange } from "@/lib/dashboard-utils";
+import { getLeadDate, isInRange, getPeriodRange, aggregateTouchesByFunnel } from "@/lib/dashboard-utils";
 
 describe("getLeadDate", () => {
   it("prioriza data_criada sobre created_at", () => {
@@ -64,5 +64,55 @@ describe("getPeriodRange", () => {
     const { current, previous } = getPeriodRange("month");
     expect(current.from).toEqual(startOfDay(new Date(2026, 5, 1)));
     expect(previous.from).toEqual(startOfDay(new Date(2026, 4, 1)));
+  });
+});
+
+describe("aggregateTouchesByFunnel", () => {
+  const range = { from: new Date("2026-06-01T00:00:00"), to: new Date("2026-06-30T23:59:59") };
+
+  it("separa aquisições (novos) de retornos por funil", () => {
+    const touches = [
+      { funil: "webinar", is_aquisicao: true, created_at: "2026-06-10T10:00:00" },
+      { funil: "webinar", is_aquisicao: false, created_at: "2026-06-12T10:00:00" },
+      { funil: "sessao", is_aquisicao: true, created_at: "2026-06-15T10:00:00" },
+    ];
+    const { porFunil, totais } = aggregateTouchesByFunnel(touches, range);
+    expect(totais).toEqual({ novos: 2, retornos: 1, total: 3 });
+    const webinar = porFunil.find((f) => f.funil === "webinar");
+    expect(webinar).toEqual({ funil: "webinar", novos: 1, retornos: 1, total: 2 });
+    const sessao = porFunil.find((f) => f.funil === "sessao");
+    expect(sessao).toEqual({ funil: "sessao", novos: 1, retornos: 0, total: 1 });
+  });
+
+  it("ignora touches fora do período", () => {
+    const touches = [
+      { funil: "webinar", is_aquisicao: true, created_at: "2026-05-30T10:00:00" },
+      { funil: "webinar", is_aquisicao: true, created_at: "2026-07-02T10:00:00" },
+      { funil: "webinar", is_aquisicao: true, created_at: "2026-06-15T10:00:00" },
+    ];
+    const { totais } = aggregateTouchesByFunnel(touches, range);
+    expect(totais.total).toBe(1);
+  });
+
+  it("agrupa funil nulo como '(sem funil)'", () => {
+    const touches = [{ funil: null, is_aquisicao: true, created_at: "2026-06-10T10:00:00" }];
+    const { porFunil } = aggregateTouchesByFunnel(touches, range);
+    expect(porFunil[0].funil).toBe("(sem funil)");
+  });
+
+  it("ordena por total decrescente", () => {
+    const touches = [
+      { funil: "a", is_aquisicao: true, created_at: "2026-06-10T10:00:00" },
+      { funil: "b", is_aquisicao: true, created_at: "2026-06-10T10:00:00" },
+      { funil: "b", is_aquisicao: false, created_at: "2026-06-11T10:00:00" },
+    ];
+    const { porFunil } = aggregateTouchesByFunnel(touches, range);
+    expect(porFunil.map((f) => f.funil)).toEqual(["b", "a"]);
+  });
+
+  it("retorna vazio quando não há touches", () => {
+    const { porFunil, totais } = aggregateTouchesByFunnel([], range);
+    expect(porFunil).toEqual([]);
+    expect(totais).toEqual({ novos: 0, retornos: 0, total: 0 });
   });
 });
