@@ -12,31 +12,6 @@ export type Database = {
   __InternalSupabase: {
     PostgrestVersion: "14.4"
   }
-  graphql_public: {
-    Tables: {
-      [_ in never]: never
-    }
-    Views: {
-      [_ in never]: never
-    }
-    Functions: {
-      graphql: {
-        Args: {
-          extensions?: Json
-          operationName?: string
-          query?: string
-          variables?: Json
-        }
-        Returns: Json
-      }
-    }
-    Enums: {
-      [_ in never]: never
-    }
-    CompositeTypes: {
-      [_ in never]: never
-    }
-  }
   public: {
     Tables: {
       activities: {
@@ -134,6 +109,74 @@ export type Database = {
         }
         Relationships: []
       }
+      lead_touches: {
+        Row: {
+          created_at: string
+          external_id: string | null
+          fbc: string | null
+          funil: string | null
+          gclid: string | null
+          id: string
+          is_aquisicao: boolean
+          lead_id: string
+          meta_ad_id: string | null
+          meta_campaign_id: string | null
+          meta_lead_id: string | null
+          utm_campaign: string | null
+          utm_content: string | null
+          utm_medium: string | null
+          utm_posicion: string | null
+          utm_source: string | null
+          utm_term: string | null
+        }
+        Insert: {
+          created_at?: string
+          external_id?: string | null
+          fbc?: string | null
+          funil?: string | null
+          gclid?: string | null
+          id?: string
+          is_aquisicao?: boolean
+          lead_id: string
+          meta_ad_id?: string | null
+          meta_campaign_id?: string | null
+          meta_lead_id?: string | null
+          utm_campaign?: string | null
+          utm_content?: string | null
+          utm_medium?: string | null
+          utm_posicion?: string | null
+          utm_source?: string | null
+          utm_term?: string | null
+        }
+        Update: {
+          created_at?: string
+          external_id?: string | null
+          fbc?: string | null
+          funil?: string | null
+          gclid?: string | null
+          id?: string
+          is_aquisicao?: boolean
+          lead_id?: string
+          meta_ad_id?: string | null
+          meta_campaign_id?: string | null
+          meta_lead_id?: string | null
+          utm_campaign?: string | null
+          utm_content?: string | null
+          utm_medium?: string | null
+          utm_posicion?: string | null
+          utm_source?: string | null
+          utm_term?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lead_touches_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       leads: {
         Row: {
           arrecadado: number | null
@@ -144,6 +187,7 @@ export type Database = {
           data_ra: string | null
           data_ultimo_contato: string | null
           email: string | null
+          email_norm: string | null
           external_id: string | null
           faturamento_mensal: string | null
           fbc: string | null
@@ -172,6 +216,7 @@ export type Database = {
           utm_source: string | null
           utm_term: string | null
           whatsapp: string | null
+          whatsapp_norm: string | null
         }
         Insert: {
           arrecadado?: number | null
@@ -182,6 +227,7 @@ export type Database = {
           data_ra?: string | null
           data_ultimo_contato?: string | null
           email?: string | null
+          email_norm?: string | null
           external_id?: string | null
           faturamento_mensal?: string | null
           fbc?: string | null
@@ -210,6 +256,7 @@ export type Database = {
           utm_source?: string | null
           utm_term?: string | null
           whatsapp?: string | null
+          whatsapp_norm?: string | null
         }
         Update: {
           arrecadado?: number | null
@@ -220,6 +267,7 @@ export type Database = {
           data_ra?: string | null
           data_ultimo_contato?: string | null
           email?: string | null
+          email_norm?: string | null
           external_id?: string | null
           faturamento_mensal?: string | null
           fbc?: string | null
@@ -248,6 +296,7 @@ export type Database = {
           utm_source?: string | null
           utm_term?: string | null
           whatsapp?: string | null
+          whatsapp_norm?: string | null
         }
         Relationships: []
       }
@@ -371,6 +420,45 @@ export type Database = {
         }
         Relationships: []
       }
+      whatsapp_config: {
+        Row: {
+          ativo: boolean
+          created_at: string
+          display_phone_number: string | null
+          id: string
+          oauth_state: string | null
+          phone_number_id: string | null
+          updated_at: string
+          vault_secret_id: string | null
+          verified_name: string | null
+          waba_id: string | null
+        }
+        Insert: {
+          ativo?: boolean
+          created_at?: string
+          display_phone_number?: string | null
+          id?: string
+          oauth_state?: string | null
+          phone_number_id?: string | null
+          updated_at?: string
+          vault_secret_id?: string | null
+          verified_name?: string | null
+          waba_id?: string | null
+        }
+        Update: {
+          ativo?: boolean
+          created_at?: string
+          display_phone_number?: string | null
+          id?: string
+          oauth_state?: string | null
+          phone_number_id?: string | null
+          updated_at?: string
+          vault_secret_id?: string | null
+          verified_name?: string | null
+          waba_id?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       meta_config_safe: {
@@ -403,12 +491,47 @@ export type Database = {
         }
         Relationships: []
       }
+      whatsapp_config_safe: {
+        Row: {
+          ativo: boolean | null
+          created_at: string | null
+          display_phone_number: string | null
+          id: string | null
+          phone_number_id: string | null
+          token_configurado: boolean | null
+          verified_name: string | null
+          waba_id: string | null
+        }
+        Insert: {
+          ativo?: boolean | null
+          created_at?: string | null
+          display_phone_number?: string | null
+          id?: string | null
+          phone_number_id?: string | null
+          token_configurado?: never
+          verified_name?: string | null
+          waba_id?: string | null
+        }
+        Update: {
+          ativo?: boolean | null
+          created_at?: string | null
+          display_phone_number?: string | null
+          id?: string | null
+          phone_number_id?: string | null
+          token_configurado?: never
+          verified_name?: string | null
+          waba_id?: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       increment_webhook_leads: {
         Args: { config_id: string }
         Returns: undefined
       }
+      normalize_email: { Args: { raw: string }; Returns: string }
+      normalize_whatsapp: { Args: { raw: string }; Returns: string }
       vault_create_secret: {
         Args: { new_name: string; new_secret: string }
         Returns: string
@@ -555,9 +678,6 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
-  graphql_public: {
-    Enums: {},
-  },
   public: {
     Enums: {},
   },

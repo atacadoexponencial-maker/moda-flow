@@ -295,7 +295,7 @@ export default function ImportLeadsPage() {
   const [mapping, setMapping] = useState<Record<number, string>>({});
   const [importing, setImporting] = useState(false);
   const [progress, setProgress] = useState(0);
-  const [result, setResult] = useState<{ success: number; errors: number } | null>(null);
+  const [result, setResult] = useState<{ novos: number; retornos: number; errors: number } | null>(null);
 
   const handleFile = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -319,7 +319,8 @@ export default function ImportLeadsPage() {
     setImporting(true);
     setProgress(0);
     setResult(null);
-    let success = 0;
+    let novos = 0;
+    let retornos = 0;
     let errors = 0;
     const batch = 50;
 
@@ -327,8 +328,20 @@ export default function ImportLeadsPage() {
       const chunk = rows.slice(i, i + batch);
       const records = chunk.map(r => buildRecord(r, headers, mapping)).filter(Boolean);
       if (records.length) {
-        const { error } = await supabase.from("leads").insert(records as TablesInsert<"leads">[]);
-        if (error) { errors += chunk.length; } else { success += records.length; errors += chunk.length - records.length; }
+        // O dedup no banco transforma linhas de contatos já existentes em
+        // touches de retorno: apenas os contatos novos voltam no select.
+        const { data, error } = await supabase
+          .from("leads")
+          .insert(records as TablesInsert<"leads">[])
+          .select("id");
+        if (error) {
+          errors += chunk.length;
+        } else {
+          const inseridos = data?.length ?? 0;
+          novos += inseridos;
+          retornos += records.length - inseridos;
+          errors += chunk.length - records.length;
+        }
       } else {
         errors += chunk.length;
       }
@@ -337,8 +350,8 @@ export default function ImportLeadsPage() {
 
     setImporting(false);
     setProgress(100);
-    setResult({ success, errors });
-    toast({ title: "Importação concluída", description: `${success} leads importados, ${errors} erros.` });
+    setResult({ novos, retornos, errors });
+    toast({ title: "Importação concluída", description: `${novos} novos contatos, ${retornos} retornos, ${errors} erros.` });
   };
 
   const preview = rows.slice(0, 3);
@@ -426,7 +439,7 @@ export default function ImportLeadsPage() {
             {importing && <Progress value={progress} className="h-2" />}
             {result && (
               <p className="text-sm font-medium text-foreground">
-                ✅ {result.success} leads importados com sucesso, {result.errors} erros.
+                ✅ {result.novos} novos contatos, {result.retornos} retornos, {result.errors} erros.
               </p>
             )}
             <div className="flex gap-3">

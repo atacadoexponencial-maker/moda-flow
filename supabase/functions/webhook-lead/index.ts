@@ -144,11 +144,14 @@ Deno.serve(async (req) => {
 
   const leadRecord = mapPayloadToLead(body);
 
-  const { data: lead, error: insertError } = await supabase
+  // A deduplicação acontece no banco (trigger BEFORE INSERT em leads):
+  // - contato novo  -> a linha é criada e retornada aqui;
+  // - contato existente -> o trigger registra um touch de retorno e descarta
+  //   o insert, então nenhuma linha é retornada (não é erro).
+  const { data: inserted, error: insertError } = await supabase
     .from("leads")
     .insert(leadRecord)
-    .select("id")
-    .single();
+    .select("id");
 
   if (insertError) {
     console.error("Insert error:", insertError);
@@ -158,11 +161,57 @@ Deno.serve(async (req) => {
     });
   }
 
+  let leadId: string | null = inserted?.[0]?.id ?? null;
+  const isNew = leadId !== null;
+
+  // Retorno (deduplicado): localiza o contato existente para responder o id.
+  if (!leadId) {
+    leadId = await findContactId(supabase, leadRecord.whatsapp, leadRecord.email);
+  }
+
   // Update webhook stats
   await supabase.rpc("increment_webhook_leads", { config_id: webhookConfig.id });
 
-  return new Response(JSON.stringify({ success: true, lead_id: lead.id }), {
+  return new Response(JSON.stringify({ success: true, lead_id: leadId, is_new: isNew }), {
     status: 201,
     headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
 });
+
+// Localiza o contato existente pela mesma regra de identidade do banco,
+// usada quando a submissão foi tratada como retorno (sem criar contato novo).
+async function findContactId(
+  supabase: ReturnType<typeof createClient>,
+  whatsapp: unknown,
+  email: unknown
+): Promise<string | null> {
+  const { data: waNorm } = await supabase.rpc("normalize_whatsapp", {
+    raw: whatsapp == null ? "" : String(whatsapp),
+  });
+  if (waNorm) {
+    const { data } = await supabase
+      .from("leads")
+      .select("id")
+      .eq("whatsapp_norm", waNorm)
+      .order("created_at", { ascending: true })
+      .limit(1)
+      .maybeSingle();
+    if (data?.id) return data.id as string;
+  }
+
+  const { data: emailNorm } = await supabase.rpc("normalize_email", {
+    raw: email == null ? "" : String(email),
+  });
+  if (emailNorm) {
+    const { data } = await supabase
+      .from("leads")
+      .select("id")
+      .eq("email_norm", emailNorm)
+      .order("created_at", { ascending: true })
+      .limit(1)
+      .maybeSingle();
+    if (data?.id) return data.id as string;
+  }
+
+  return null;
+}
