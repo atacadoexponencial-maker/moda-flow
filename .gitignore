@@ -18,6 +18,7 @@ dist-ssr
 
 # Local files
 .claude/
+backups/
 plano-implementacao-crm.md
 prompts-lovable.md
 teste

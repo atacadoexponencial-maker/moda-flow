@@ -54,27 +54,30 @@ Components use **shadcn/ui** (Radix UI + Tailwind CSS). The pipeline page uses *
 
 The UI is in **Portuguese (pt-BR)**.
 
-## Working with Lovable
+## Deploy
 
-This project is co-developed with **Lovable** (lovable.dev), an AI-powered dev environment that has direct access to deploy Supabase Edge Functions, run migrations, and sync the Supabase project.
+The frontend is deployed to **Vercel** (production builds from `origin/main`). The backend stays on **Supabase** (database + Edge Functions), managed via the **Supabase CLI**.
 
-### What requires Lovable
+> This project was previously co-developed with Lovable. That migration is complete — do **not** generate "Lovable input" prompts anymore.
 
-Some actions cannot be done via Claude Code alone and must be executed through the Lovable chat interface:
+### Deploying backend changes (Supabase CLI)
 
-- **Deploying Edge Functions** — Lovable deploys them directly to the Supabase project. Editing files locally has no effect until Lovable redeploys.
-- **Running database migrations** — Lovable applies `.sql` migration files to the live Supabase instance.
-- **Updating `src/integrations/supabase/types.ts`** — Lovable regenerates this file after schema changes.
+The project is linked to the Supabase project `ynjxvzjomizfyabupvne` (see `supabase/config.toml`).
 
-### How to handle this
+- **Edge Functions** (`supabase/functions/`): editing files locally has no effect until deployed.
+  ```bash
+  supabase functions deploy <function-name>   # or omit name to deploy all
+  ```
+  Functions with `verify_jwt = false` (e.g. `webhook-lead`, the `meta-*` handlers) are configured in `supabase/config.toml`.
+- **Migrations** (`supabase/migrations/`): add a new `.sql` file, then apply it to the live instance.
+  ```bash
+  supabase db push
+  ```
+- **Generated types** (`src/integrations/supabase/types.ts`): regenerate after schema changes.
+  ```bash
+  supabase gen types typescript --project-id ynjxvzjomizfyabupvne > src/integrations/supabase/types.ts
+  ```
 
-Whenever a task requires one of the above actions, **provide a ready-to-paste Lovable prompt** at the end of the response, formatted like this:
+### Deploying the frontend (Vercel)
 
----
-**Lovable input:**
-```
-<prompt in Portuguese describing exactly what to implement or deploy>
-```
----
-
-The prompt should be self-contained and precise — include field names, function names, or SQL snippets as needed so the user can paste it directly without editing.
+Pushing to `origin/main` triggers a production deploy on Vercel. Local work happens on `master`, so carry commits over to `main` before expecting them in production.
