@@ -12,6 +12,7 @@ import {
   computeFunnelMetrics,
   type TouchWithCampaign,
   type MetaCacheRow,
+  type FunnelCampaignLink,
 } from "@/lib/dashboard-utils";
 import { FunnelChart } from "@/components/dashboard/FunnelChart";
 import { LeadSourceChart } from "@/components/dashboard/LeadSourceChart";
@@ -129,20 +130,23 @@ const DashboardPage = () => {
   const [leads, setLeads] = useState<Lead[]>([]);
   const [metaAds, setMetaAds] = useState<MetaCacheRow[]>([]);
   const [touches, setTouches] = useState<TouchWithCampaign[]>([]);
+  const [funnelCampaigns, setFunnelCampaigns] = useState<FunnelCampaignLink[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const load = async () => {
-      const [leadsRes, metaRes, touchesRes] = await Promise.all([
+      const [leadsRes, metaRes, touchesRes, fcRes] = await Promise.all([
         supabase
           .from("leads")
           .select("data_criada, created_at, mql, sql_flag, ra_flag, rr_flag, status, oportunidade, arrecadado, utm_source, funil"),
-        supabase.from("meta_ads_cache").select("campaign_name, spend, date_start"),
+        supabase.from("meta_ads_cache").select("campaign_id, campaign_name, spend, date_start"),
         supabase.from("lead_touches").select("funil, is_aquisicao, created_at, utm_campaign"),
+        supabase.from("funnel_campaigns").select("funil, campaign_id"),
       ]);
       setLeads((leadsRes.data as Lead[]) || []);
       setMetaAds((metaRes.data as MetaCacheRow[]) || []);
       setTouches((touchesRes.data as TouchWithCampaign[]) || []);
+      setFunnelCampaigns((fcRes.data as FunnelCampaignLink[]) || []);
       setLoading(false);
     };
     load();
@@ -160,8 +164,8 @@ const DashboardPage = () => {
 
   const funnelMetrics = useMemo(() => {
     const { current } = getPeriodRange(period);
-    return computeFunnelMetrics(touches, metaAds, current);
-  }, [touches, metaAds, period]);
+    return computeFunnelMetrics(touches, metaAds, funnelCampaigns, current);
+  }, [touches, metaAds, funnelCampaigns, period]);
 
   const investimento = useMemo(() => {
     if (selectedFunil === "all") return funnelMetrics.totais.investimento;

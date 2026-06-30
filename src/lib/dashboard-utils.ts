@@ -112,9 +112,15 @@ export interface TouchWithCampaign extends Touch {
 }
 
 export interface MetaCacheRow {
+  campaign_id: string | null;
   campaign_name: string | null;
   spend: number | null;
   date_start: string | null;
+}
+
+export interface FunnelCampaignLink {
+  funil: string;
+  campaign_id: string;
 }
 
 export interface FunnelMetricsRow {
@@ -140,12 +146,14 @@ const normCampaign = (s: string | null) => (s || "").trim().toLowerCase();
  *
  * - Pago: o touch tem utm_campaign que casa com uma campanha do Meta (cache).
  * - Orgânico: sem utm_campaign ou sem correspondência no Meta.
- * - O spend (linhas diárias) é atribuído ao funil onde caíram os leads da
- *   campanha (funil dominante por campanha).
+ * - O spend (linhas diárias) é atribuído ao funil da campanha. A campanha é
+ *   mapeada a um funil por (1) vínculo manual em funnel_campaigns, que tem
+ *   precedência, ou (2) o funil dominante dos touches daquela campanha.
  */
 export function computeFunnelMetrics(
   touches: TouchWithCampaign[],
   metaCache: MetaCacheRow[],
+  funnelCampaigns: FunnelCampaignLink[],
   range: PeriodRange,
 ): FunnelMetrics {
   const paidCampaignNames = new Set(
@@ -154,7 +162,7 @@ export function computeFunnelMetrics(
 
   const inRange = touches.filter((t) => isInRange(startOfDay(new Date(t.created_at)), range));
 
-  // campanha -> funil dominante (a partir dos touches pagos no período)
+  // campanha (nome) -> funil dominante, a partir dos touches pagos no período
   const votes = new Map<string, Map<string, number>>();
   for (const t of inRange) {
     const c = normCampaign(t.utm_campaign);
@@ -164,10 +172,16 @@ export function computeFunnelMetrics(
     v.set(funil, (v.get(funil) ?? 0) + 1);
     votes.set(c, v);
   }
-  const campaignToFunnel = new Map<string, string>();
+  const autoFunnelByName = new Map<string, string>();
   for (const [c, v] of votes) {
     const top = [...v.entries()].sort((a, b) => b[1] - a[1])[0][0];
-    campaignToFunnel.set(c, top);
+    autoFunnelByName.set(c, top);
+  }
+
+  // vínculo manual: campaign_id -> funil (tem precedência sobre o automático)
+  const manualFunnelById = new Map<string, string>();
+  for (const fc of funnelCampaigns) {
+    if (fc.campaign_id) manualFunnelById.set(fc.campaign_id, fc.funil);
   }
 
   // spend por funil (linhas diárias do cache dentro do período)
@@ -175,8 +189,10 @@ export function computeFunnelMetrics(
   for (const r of metaCache) {
     if (!r.date_start) continue;
     if (!isInRange(startOfDay(new Date(r.date_start)), range)) continue;
-    const funil = campaignToFunnel.get(normCampaign(r.campaign_name));
-    if (!funil) continue; // campanha sem touches no período: não atribuível
+    const funil =
+      (r.campaign_id ? manualFunnelById.get(r.campaign_id) : undefined) ??
+      autoFunnelByName.get(normCampaign(r.campaign_name));
+    if (!funil) continue; // campanha sem vínculo nem touches: não atribuível
     spendByFunnel.set(funil, (spendByFunnel.get(funil) ?? 0) + (r.spend || 0));
   }
 
