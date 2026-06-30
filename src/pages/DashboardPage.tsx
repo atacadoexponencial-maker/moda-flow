@@ -9,12 +9,12 @@ import {
   getPeriodRange,
   getLeadDate,
   isInRange,
-  aggregateTouchesByFunnel,
-  type Touch,
+  computeFunnelMetrics,
+  type TouchWithCampaign,
+  type MetaCacheRow,
 } from "@/lib/dashboard-utils";
 import { FunnelChart } from "@/components/dashboard/FunnelChart";
 import { LeadSourceChart } from "@/components/dashboard/LeadSourceChart";
-import { format } from "date-fns";
 
 // TODO: substituir por campo do back-end quando disponível
 const META_ARRECADADO = 0;
@@ -33,20 +33,12 @@ interface Lead {
   funil: string | null;
 }
 
-interface FunnelCampaign {
-  funil: string;
-  campaign_id: string;
-}
-
-interface MetaAdsRow {
-  campaign_id: string | null;
-  spend: number | null;
-  date_start: string | null;
-  date_stop: string | null;
-}
-
 function formatCurrency(value: number): string {
   return value.toLocaleString("pt-BR", { style: "currency", currency: "BRL", minimumFractionDigits: 0, maximumFractionDigits: 0 });
+}
+
+function formatCpl(value: number): string {
+  return value.toLocaleString("pt-BR", { style: "currency", currency: "BRL", minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
 interface KpiCardProps {
@@ -131,58 +123,26 @@ const PERIOD_BUTTONS: { key: PeriodKey; label: string }[] = [
   { key: "90d", label: "90 dias" },
 ];
 
-function calcSpendForRange(
-  metaRows: MetaAdsRow[],
-  funnelCampaigns: FunnelCampaign[],
-  rangeFrom: Date,
-  rangeTo: Date,
-  funil: string,
-) {
-  const fmtDate = (d: Date) => format(d, "yyyy-MM-dd");
-  const from = fmtDate(rangeFrom);
-  const to = fmtDate(rangeTo);
-
-  let campaignIds: Set<string>;
-  if (funil === "all") {
-    campaignIds = new Set(funnelCampaigns.map((fc) => fc.campaign_id));
-  } else {
-    campaignIds = new Set(
-      funnelCampaigns.filter((fc) => fc.funil === funil).map((fc) => fc.campaign_id)
-    );
-  }
-
-  return metaRows
-    .filter((r) => {
-      if (!r.campaign_id || !r.date_start || !r.date_stop) return false;
-      if (!campaignIds.has(r.campaign_id)) return false;
-      return r.date_start <= to && r.date_stop >= from;
-    })
-    .reduce((sum, r) => sum + (r.spend || 0), 0);
-}
-
 const DashboardPage = () => {
   const [period, setPeriod] = useState<PeriodKey>("30d");
   const [selectedFunil, setSelectedFunil] = useState<string>("all");
   const [leads, setLeads] = useState<Lead[]>([]);
-  const [funnelCampaigns, setFunnelCampaigns] = useState<FunnelCampaign[]>([]);
-  const [metaAds, setMetaAds] = useState<MetaAdsRow[]>([]);
-  const [touches, setTouches] = useState<Touch[]>([]);
+  const [metaAds, setMetaAds] = useState<MetaCacheRow[]>([]);
+  const [touches, setTouches] = useState<TouchWithCampaign[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const load = async () => {
-      const [leadsRes, fcRes, metaRes, touchesRes] = await Promise.all([
+      const [leadsRes, metaRes, touchesRes] = await Promise.all([
         supabase
           .from("leads")
           .select("data_criada, created_at, mql, sql_flag, ra_flag, rr_flag, status, oportunidade, arrecadado, utm_source, funil"),
-        supabase.from("funnel_campaigns").select("funil, campaign_id"),
-        supabase.from("meta_ads_cache").select("campaign_id, spend, date_start, date_stop"),
-        supabase.from("lead_touches").select("funil, is_aquisicao, created_at"),
+        supabase.from("meta_ads_cache").select("campaign_name, spend, date_start"),
+        supabase.from("lead_touches").select("funil, is_aquisicao, created_at, utm_campaign"),
       ]);
       setLeads((leadsRes.data as Lead[]) || []);
-      setFunnelCampaigns((fcRes.data as FunnelCampaign[]) || []);
-      setMetaAds((metaRes.data as MetaAdsRow[]) || []);
-      setTouches((touchesRes.data as Touch[]) || []);
+      setMetaAds((metaRes.data as MetaCacheRow[]) || []);
+      setTouches((touchesRes.data as TouchWithCampaign[]) || []);
       setLoading(false);
     };
     load();
@@ -198,15 +158,15 @@ const DashboardPage = () => {
     return leads.filter((l) => isInRange(getLeadDate(l), current));
   }, [leads, period]);
 
-  const investimento = useMemo(() => {
+  const funnelMetrics = useMemo(() => {
     const { current } = getPeriodRange(period);
-    return calcSpendForRange(metaAds, funnelCampaigns, current.from, current.to, selectedFunil);
-  }, [metaAds, funnelCampaigns, period, selectedFunil]);
+    return computeFunnelMetrics(touches, metaAds, current);
+  }, [touches, metaAds, period]);
 
-  const touchStats = useMemo(() => {
-    const { current } = getPeriodRange(period);
-    return aggregateTouchesByFunnel(touches, current);
-  }, [touches, period]);
+  const investimento = useMemo(() => {
+    if (selectedFunil === "all") return funnelMetrics.totais.investimento;
+    return funnelMetrics.porFunil.find((f) => f.funil === selectedFunil)?.investimento ?? 0;
+  }, [funnelMetrics, selectedFunil]);
 
   const kpis = useMemo(() => {
     const { current, previous } = getPeriodRange(period);
@@ -328,12 +288,12 @@ const DashboardPage = () => {
         <Card>
           <CardContent className="pt-4 pb-4 px-4">
             <div className="mb-3">
-              <h3 className="text-sm font-semibold text-foreground">Aquisições vs Retornos por funil</h3>
+              <h3 className="text-sm font-semibold text-foreground">Investimento, aquisições e retornos por funil</h3>
               <p className="text-xs text-muted-foreground mt-0.5">
-                Novos = primeira vez no CRM (aquisição). Retornos = contato que já existia voltou a engajar.
+                Novos pagos = aquisição de campanha do Meta. Orgânicos = sem campanha (custo zero). CPL = investimento ÷ novos pagos.
               </p>
             </div>
-            {touchStats.porFunil.length === 0 ? (
+            {funnelMetrics.porFunil.length === 0 ? (
               <p className="text-sm text-muted-foreground py-4">Nenhum touch no período.</p>
             ) : (
               <div className="overflow-x-auto">
@@ -341,27 +301,33 @@ const DashboardPage = () => {
                   <thead>
                     <tr className="text-left text-xs text-muted-foreground border-b">
                       <th className="py-2 pr-4 font-medium">Funil</th>
-                      <th className="py-2 px-4 font-medium text-right">Novos</th>
-                      <th className="py-2 px-4 font-medium text-right">Retornos</th>
-                      <th className="py-2 pl-4 font-medium text-right">Total</th>
+                      <th className="py-2 px-3 font-medium text-right">Investimento</th>
+                      <th className="py-2 px-3 font-medium text-right">Novos pagos</th>
+                      <th className="py-2 px-3 font-medium text-right">CPL</th>
+                      <th className="py-2 px-3 font-medium text-right">Orgânicos</th>
+                      <th className="py-2 pl-3 font-medium text-right">Retornos</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {touchStats.porFunil.map((f) => (
+                    {funnelMetrics.porFunil.map((f) => (
                       <tr key={f.funil} className="border-b last:border-0">
                         <td className="py-2 pr-4 text-foreground">{f.funil}</td>
-                        <td className="py-2 px-4 text-right font-medium text-emerald-600">{f.novos}</td>
-                        <td className="py-2 px-4 text-right text-muted-foreground">{f.retornos}</td>
-                        <td className="py-2 pl-4 text-right font-medium text-foreground">{f.total}</td>
+                        <td className="py-2 px-3 text-right text-foreground">{formatCurrency(f.investimento)}</td>
+                        <td className="py-2 px-3 text-right font-medium text-emerald-600">{f.novosPagos}</td>
+                        <td className="py-2 px-3 text-right text-foreground">{f.cpl !== null ? formatCpl(f.cpl) : "—"}</td>
+                        <td className="py-2 px-3 text-right text-muted-foreground">{f.novosOrganicos}</td>
+                        <td className="py-2 pl-3 text-right text-muted-foreground">{f.retornos}</td>
                       </tr>
                     ))}
                   </tbody>
                   <tfoot>
                     <tr className="border-t-2 font-semibold">
                       <td className="py-2 pr-4 text-foreground">Total</td>
-                      <td className="py-2 px-4 text-right text-emerald-600">{touchStats.totais.novos}</td>
-                      <td className="py-2 px-4 text-right text-muted-foreground">{touchStats.totais.retornos}</td>
-                      <td className="py-2 pl-4 text-right text-foreground">{touchStats.totais.total}</td>
+                      <td className="py-2 px-3 text-right text-foreground">{formatCurrency(funnelMetrics.totais.investimento)}</td>
+                      <td className="py-2 px-3 text-right text-emerald-600">{funnelMetrics.totais.novosPagos}</td>
+                      <td className="py-2 px-3 text-right text-foreground">{funnelMetrics.totais.cpl !== null ? formatCpl(funnelMetrics.totais.cpl) : "—"}</td>
+                      <td className="py-2 px-3 text-right text-muted-foreground">{funnelMetrics.totais.novosOrganicos}</td>
+                      <td className="py-2 pl-3 text-right text-muted-foreground">{funnelMetrics.totais.retornos}</td>
                     </tr>
                   </tfoot>
                 </table>

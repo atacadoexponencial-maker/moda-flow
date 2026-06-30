@@ -28,27 +28,34 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const authHeader = req.headers.get("Authorization");
-    if (!authHeader?.startsWith("Bearer ")) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
-    const userClient = createClient(supabaseUrl, supabaseAnonKey, {
-      global: { headers: { Authorization: authHeader } },
-    });
-    const { error: userError } = await userClient.auth.getUser();
-    if (userError) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+    // Execução automática (cron) é autenticada por um segredo; nesse caso
+    // não exige usuário logado. Caso contrário, valida a sessão do usuário.
+    const cronSecret = req.headers.get("x-cron-secret");
+    const isCron = !!cronSecret && cronSecret === Deno.env.get("CRON_SECRET");
+
+    if (!isCron) {
+      const authHeader = req.headers.get("Authorization");
+      if (!authHeader?.startsWith("Bearer ")) {
+        return new Response(JSON.stringify({ error: "Unauthorized" }), {
+          status: 401,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const userClient = createClient(supabaseUrl, supabaseAnonKey, {
+        global: { headers: { Authorization: authHeader } },
       });
+      const { error: userError } = await userClient.auth.getUser();
+      if (userError) {
+        return new Response(JSON.stringify({ error: "Unauthorized" }), {
+          status: 401,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
     }
 
     const adminClient = createClient(supabaseUrl, serviceRoleKey);
@@ -144,12 +151,15 @@ Deno.serve(async (req) => {
       }
     }
 
-    // 3. Fetch insights from Meta Marketing API — last 30 days
+    // 3. Fetch insights from Meta Marketing API — last 90 days, day by day
+    //    (time_increment=1 retorna uma linha por campanha POR DIA, permitindo
+    //     somar o gasto de qualquer período no dashboard).
     const fields = "campaign_id,campaign_name,spend,impressions,clicks";
     const insightsUrl =
       `https://graph.facebook.com/v19.0/${config.ad_account_id}/insights` +
       `?fields=${fields}` +
-      `&date_preset=last_30d` +
+      `&date_preset=last_90d` +
+      `&time_increment=1` +
       `&level=campaign` +
       `&limit=500`;
 

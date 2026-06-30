@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { startOfDay } from "date-fns";
-import { getLeadDate, isInRange, getPeriodRange, aggregateTouchesByFunnel } from "@/lib/dashboard-utils";
+import { getLeadDate, isInRange, getPeriodRange, aggregateTouchesByFunnel, computeFunnelMetrics } from "@/lib/dashboard-utils";
 
 describe("getLeadDate", () => {
   it("prioriza data_criada sobre created_at", () => {
@@ -114,5 +114,61 @@ describe("aggregateTouchesByFunnel", () => {
     const { porFunil, totais } = aggregateTouchesByFunnel([], range);
     expect(porFunil).toEqual([]);
     expect(totais).toEqual({ novos: 0, retornos: 0, total: 0 });
+  });
+});
+
+describe("computeFunnelMetrics", () => {
+  const range = { from: new Date("2026-06-01T00:00:00"), to: new Date("2026-06-30T23:59:59") };
+  const cache = [
+    { campaign_name: "Camp Paga", spend: 60, date_start: "2026-06-10" },
+    { campaign_name: "Camp Paga", spend: 40, date_start: "2026-06-12" },
+    { campaign_name: "Camp Paga", spend: 999, date_start: "2026-05-20" }, // fora do período
+  ];
+
+  it("classifica pago (utm_campaign casa com Meta) vs orgânico", () => {
+    const touches = [
+      { funil: "webinar", is_aquisicao: true, created_at: "2026-06-11T10:00:00", utm_campaign: "Camp Paga" },
+      { funil: "webinar", is_aquisicao: true, created_at: "2026-06-13T10:00:00", utm_campaign: null },
+      { funil: "webinar", is_aquisicao: true, created_at: "2026-06-14T10:00:00", utm_campaign: "Desconhecida" },
+    ];
+    const { porFunil } = computeFunnelMetrics(touches, cache, range);
+    const w = porFunil.find((f) => f.funil === "webinar")!;
+    expect(w.novosPagos).toBe(1);
+    expect(w.novosOrganicos).toBe(2); // sem campanha + campanha sem match
+  });
+
+  it("soma spend só do período e calcula CPL = spend / aquisições pagas", () => {
+    const touches = [
+      { funil: "webinar", is_aquisicao: true, created_at: "2026-06-11T10:00:00", utm_campaign: "Camp Paga" },
+      { funil: "webinar", is_aquisicao: true, created_at: "2026-06-12T10:00:00", utm_campaign: "Camp Paga" },
+    ];
+    const { porFunil, totais } = computeFunnelMetrics(touches, cache, range);
+    const w = porFunil.find((f) => f.funil === "webinar")!;
+    expect(w.investimento).toBe(100); // 60 + 40 (a linha de maio fica de fora)
+    expect(w.cpl).toBe(50); // 100 / 2
+    expect(totais.investimento).toBe(100);
+    expect(totais.cpl).toBe(50);
+  });
+
+  it("atribui o spend ao funil dominante da campanha", () => {
+    const touches = [
+      { funil: "webinar", is_aquisicao: true, created_at: "2026-06-11T10:00:00", utm_campaign: "Camp Paga" },
+      { funil: "webinar", is_aquisicao: true, created_at: "2026-06-12T10:00:00", utm_campaign: "Camp Paga" },
+      { funil: "sessao", is_aquisicao: false, created_at: "2026-06-13T10:00:00", utm_campaign: "Camp Paga" },
+    ];
+    const { porFunil } = computeFunnelMetrics(touches, cache, range);
+    const w = porFunil.find((f) => f.funil === "webinar")!;
+    const s = porFunil.find((f) => f.funil === "sessao");
+    expect(w.investimento).toBe(100); // todo o spend vai para webinar (dominante)
+    expect(s?.investimento ?? 0).toBe(0);
+  });
+
+  it("CPL é null quando não há aquisição paga", () => {
+    const touches = [
+      { funil: "organico", is_aquisicao: true, created_at: "2026-06-11T10:00:00", utm_campaign: null },
+    ];
+    const { porFunil } = computeFunnelMetrics(touches, [], range);
+    expect(porFunil[0].cpl).toBeNull();
+    expect(porFunil[0].novosOrganicos).toBe(1);
   });
 });
