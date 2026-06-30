@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { startOfDay } from "date-fns";
-import { getLeadDate, isInRange, getPeriodRange, aggregateTouchesByFunnel, computeFunnelMetrics } from "@/lib/dashboard-utils";
+import { getLeadDate, isInRange, getPeriodRange, aggregateTouchesByFunnel, computeFunnelMetrics, ACQUISITION_BUCKET } from "@/lib/dashboard-utils";
 
 describe("getLeadDate", () => {
   it("prioriza data_criada sobre created_at", () => {
@@ -119,80 +119,64 @@ describe("aggregateTouchesByFunnel", () => {
 
 describe("computeFunnelMetrics", () => {
   const range = { from: new Date("2026-06-01T00:00:00"), to: new Date("2026-06-30T23:59:59") };
-  const cache = [
-    { campaign_id: "A", campaign_name: "Camp Paga", spend: 60, date_start: "2026-06-10" },
-    { campaign_id: "A", campaign_name: "Camp Paga", spend: 40, date_start: "2026-06-12" },
-    { campaign_id: "A", campaign_name: "Camp Paga", spend: 999, date_start: "2026-05-20" }, // fora do período
+  // campanha com token "se" -> sessao-estrategica
+  const cacheSe = [
+    { campaign_id: "S1", campaign_name: "seteads_leads_se_advt", spend: 60, date_start: "2026-06-10" },
+    { campaign_id: "S1", campaign_name: "seteads_leads_se_advt", spend: 40, date_start: "2026-06-12" },
+    { campaign_id: "S1", campaign_name: "seteads_leads_se_advt", spend: 999, date_start: "2026-05-20" }, // fora do período
   ];
 
-  it("classifica pago (utm_campaign casa com Meta) vs orgânico", () => {
+  it("atribui o investimento ao funil pelo token do nome da campanha", () => {
     const touches = [
-      { funil: "webinar", is_aquisicao: true, created_at: "2026-06-11T10:00:00", utm_campaign: "Camp Paga" },
-      { funil: "webinar", is_aquisicao: true, created_at: "2026-06-13T10:00:00", utm_campaign: null },
-      { funil: "webinar", is_aquisicao: true, created_at: "2026-06-14T10:00:00", utm_campaign: "Desconhecida" },
+      { funil: "sessao-estrategica", is_aquisicao: true, created_at: "2026-06-11T10:00:00", utm_campaign: "seteads_leads_se_advt" },
+      { funil: "sessao-estrategica", is_aquisicao: true, created_at: "2026-06-12T10:00:00", utm_campaign: "seteads_leads_se_advt" },
+    ];
+    const { porFunil } = computeFunnelMetrics(touches, cacheSe, [], range);
+    const s = porFunil.find((f) => f.funil === "sessao-estrategica")!;
+    expect(s.investimento).toBe(100); // 60 + 40 (maio fora do período)
+    expect(s.novosPagos).toBe(2);
+    expect(s.cpl).toBe(50); // 100 / 2
+  });
+
+  it("classifica pago (utm casa com Meta) vs orgânico, contando pelo funil do formulário", () => {
+    const touches = [
+      { funil: "lives-semanais-v1", is_aquisicao: true, created_at: "2026-06-11T10:00:00", utm_campaign: "seteads_leads_se_advt" },
+      { funil: "lives-semanais-v1", is_aquisicao: true, created_at: "2026-06-13T10:00:00", utm_campaign: null },
+      { funil: "lives-semanais-v1", is_aquisicao: true, created_at: "2026-06-14T10:00:00", utm_campaign: "Desconhecida" },
+    ];
+    const { porFunil } = computeFunnelMetrics(touches, cacheSe, [], range);
+    const l = porFunil.find((f) => f.funil === "lives-semanais-v1")!;
+    expect(l.novosPagos).toBe(1); // só o que casou com o Meta
+    expect(l.novosOrganicos).toBe(2); // sem campanha + campanha sem match
+  });
+
+  it("campanha sem token vai para 'Aquisição' (só investimento, sem leads)", () => {
+    const cache = [{ campaign_id: "X", campaign_name: "Post do Instagram: marca", spend: 80, date_start: "2026-06-10" }];
+    const touches = [
+      { funil: "diagnostico", is_aquisicao: true, created_at: "2026-06-11T10:00:00", utm_campaign: "Post do Instagram: marca" },
     ];
     const { porFunil } = computeFunnelMetrics(touches, cache, [], range);
-    const w = porFunil.find((f) => f.funil === "webinar")!;
-    expect(w.novosPagos).toBe(1);
-    expect(w.novosOrganicos).toBe(2); // sem campanha + campanha sem match
+    const aq = porFunil.find((f) => f.funil === ACQUISITION_BUCKET)!;
+    expect(aq.investimento).toBe(80);
+    expect(aq.novosPagos).toBe(0); // nenhum lead na Aquisição
+    expect(aq.cpl).toBeNull();
+    // o lead é contado no funil do formulário (diagnostico)
+    const d = porFunil.find((f) => f.funil === "diagnostico")!;
+    expect(d.novosPagos).toBe(1);
+    expect(d.investimento).toBe(0);
+    expect(d.cpl).toBeNull(); // sem investimento atribuído
   });
 
-  it("soma spend só do período e calcula CPL = spend / aquisições pagas", () => {
+  it("vínculo manual tem precedência sobre o token", () => {
     const touches = [
-      { funil: "webinar", is_aquisicao: true, created_at: "2026-06-11T10:00:00", utm_campaign: "Camp Paga" },
-      { funil: "webinar", is_aquisicao: true, created_at: "2026-06-12T10:00:00", utm_campaign: "Camp Paga" },
+      { funil: "sessao-estrategica", is_aquisicao: true, created_at: "2026-06-11T10:00:00", utm_campaign: "seteads_leads_se_advt" },
     ];
-    const { porFunil, totais } = computeFunnelMetrics(touches, cache, [], range);
-    const w = porFunil.find((f) => f.funil === "webinar")!;
-    expect(w.investimento).toBe(100); // 60 + 40 (a linha de maio fica de fora)
-    expect(w.cpl).toBe(50); // 100 / 2
-    expect(totais.investimento).toBe(100);
-    expect(totais.cpl).toBe(50);
+    const links = [{ funil: "outro-funil", campaign_id: "S1" }];
+    const { porFunil } = computeFunnelMetrics(touches, cacheSe, links, range);
+    expect(porFunil.find((f) => f.funil === "outro-funil")?.investimento).toBe(100);
   });
 
-  it("atribui o spend ao funil dominante da campanha (automático)", () => {
-    const touches = [
-      { funil: "webinar", is_aquisicao: true, created_at: "2026-06-11T10:00:00", utm_campaign: "Camp Paga" },
-      { funil: "webinar", is_aquisicao: true, created_at: "2026-06-12T10:00:00", utm_campaign: "Camp Paga" },
-      { funil: "sessao", is_aquisicao: false, created_at: "2026-06-13T10:00:00", utm_campaign: "Camp Paga" },
-    ];
-    const { porFunil } = computeFunnelMetrics(touches, cache, [], range);
-    const w = porFunil.find((f) => f.funil === "webinar")!;
-    const s = porFunil.find((f) => f.funil === "sessao");
-    expect(w.investimento).toBe(100); // todo o spend vai para webinar (dominante)
-    expect(s?.investimento ?? 0).toBe(0);
-  });
-
-  it("conta o spend de campanha SEM touches quando há vínculo manual", () => {
-    // Campanha B tem gasto mas nenhum touch a referencia; só o vínculo manual liga.
-    const cacheAB = [
-      ...cache,
-      { campaign_id: "B", campaign_name: "Camp Paga ABO", spend: 70, date_start: "2026-06-15" },
-    ];
-    const touches = [
-      { funil: "live", is_aquisicao: true, created_at: "2026-06-11T10:00:00", utm_campaign: "Camp Paga" },
-    ];
-    const links = [
-      { funil: "live", campaign_id: "A" },
-      { funil: "live", campaign_id: "B" },
-    ];
-    const { porFunil } = computeFunnelMetrics(touches, cacheAB, links, range);
-    const live = porFunil.find((f) => f.funil === "live")!;
-    expect(live.investimento).toBe(170); // 100 (A) + 70 (B, via vínculo manual)
-    expect(live.novosPagos).toBe(1);
-    expect(live.cpl).toBe(170); // 170 / 1
-  });
-
-  it("vínculo manual tem precedência sobre o automático", () => {
-    const touches = [
-      { funil: "webinar", is_aquisicao: true, created_at: "2026-06-11T10:00:00", utm_campaign: "Camp Paga" },
-    ];
-    const links = [{ funil: "outro", campaign_id: "A" }];
-    const { porFunil } = computeFunnelMetrics(touches, cache, links, range);
-    expect(porFunil.find((f) => f.funil === "outro")?.investimento).toBe(100);
-  });
-
-  it("CPL é null quando não há aquisição paga", () => {
+  it("CPL é null quando não há investimento", () => {
     const touches = [
       { funil: "organico", is_aquisicao: true, created_at: "2026-06-11T10:00:00", utm_campaign: null },
     ];

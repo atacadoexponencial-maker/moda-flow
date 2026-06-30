@@ -294,7 +294,7 @@ const DashboardPage = () => {
             <div className="mb-3">
               <h3 className="text-sm font-semibold text-foreground">Investimento, aquisições e retornos por funil</h3>
               <p className="text-xs text-muted-foreground mt-0.5">
-                Novos pagos = aquisição de campanha do Meta. Orgânicos = sem campanha (custo zero). CPL = investimento ÷ novos pagos.
+                Investimento atribuído pelo funil da campanha (token do nome); campanhas sem funil entram em "Aquisição" (só gasto). Leads contados pelo funil do formulário. CPL = investimento ÷ novos pagos.
               </p>
             </div>
             {funnelMetrics.porFunil.length === 0 ? (

@@ -140,15 +140,39 @@ export interface FunnelMetrics {
 const normCampaign = (s: string | null) => (s || "").trim().toLowerCase();
 
 /**
+ * Vocabulário token→funil: o nome da campanha do Meta carrega, num de seus
+ * segmentos (separados por "_"), o token do funil ao qual ela pertence.
+ * Atualize aqui se a convenção de nomes mudar.
+ */
+const FUNNEL_TOKENS: Record<string, string> = {
+  se: "sessao-estrategica",
+  "lives-semanais": "lives-semanais-v1",
+  diagnostico: "diagnostico",
+  workshop: "workshop",
+};
+
+/** Bucket para o gasto de campanhas sem token de funil (marca/topo). */
+export const ACQUISITION_BUCKET = "Aquisição";
+
+/** Deriva o funil da campanha pelo token no nome (match por segmento). */
+function funnelFromCampaignName(name: string | null): string {
+  for (const seg of normCampaign(name).split("_")) {
+    if (FUNNEL_TOKENS[seg]) return FUNNEL_TOKENS[seg];
+  }
+  return ACQUISITION_BUCKET;
+}
+
+/**
  * Calcula, por funil e no período, as aquisições pagas vs orgânicas, os
  * retornos, o investimento (spend das campanhas que alimentaram o funil) e
  * o CPL (investimento ÷ aquisições pagas).
  *
  * - Pago: o touch tem utm_campaign que casa com uma campanha do Meta (cache).
  * - Orgânico: sem utm_campaign ou sem correspondência no Meta.
- * - O spend (linhas diárias) é atribuído ao funil da campanha. A campanha é
- *   mapeada a um funil por (1) vínculo manual em funnel_campaigns, que tem
- *   precedência, ou (2) o funil dominante dos touches daquela campanha.
+ * - Leads (aquisições/retornos) são contados pelo funil do lead (formulário).
+ * - O spend é atribuído ao funil da CAMPANHA, definido pelo vínculo manual
+ *   (precedência) ou pelo token no nome da campanha. Campanhas sem token vão
+ *   para o bucket "Aquisição" (só investimento, sem leads).
  */
 export function computeFunnelMetrics(
   touches: TouchWithCampaign[],
@@ -162,37 +186,21 @@ export function computeFunnelMetrics(
 
   const inRange = touches.filter((t) => isInRange(startOfDay(new Date(t.created_at)), range));
 
-  // campanha (nome) -> funil dominante, a partir dos touches pagos no período
-  const votes = new Map<string, Map<string, number>>();
-  for (const t of inRange) {
-    const c = normCampaign(t.utm_campaign);
-    if (!c || !paidCampaignNames.has(c)) continue;
-    const funil = t.funil || "(sem funil)";
-    const v = votes.get(c) ?? new Map<string, number>();
-    v.set(funil, (v.get(funil) ?? 0) + 1);
-    votes.set(c, v);
-  }
-  const autoFunnelByName = new Map<string, string>();
-  for (const [c, v] of votes) {
-    const top = [...v.entries()].sort((a, b) => b[1] - a[1])[0][0];
-    autoFunnelByName.set(c, top);
-  }
-
-  // vínculo manual: campaign_id -> funil (tem precedência sobre o automático)
+  // vínculo manual: campaign_id -> funil (tem precedência sobre o token)
   const manualFunnelById = new Map<string, string>();
   for (const fc of funnelCampaigns) {
     if (fc.campaign_id) manualFunnelById.set(fc.campaign_id, fc.funil);
   }
 
-  // spend por funil (linhas diárias do cache dentro do período)
+  // spend por funil: token do nome da campanha (ou vínculo manual);
+  // campanhas sem token caem em "Aquisição".
   const spendByFunnel = new Map<string, number>();
   for (const r of metaCache) {
     if (!r.date_start) continue;
     if (!isInRange(startOfDay(new Date(r.date_start)), range)) continue;
     const funil =
       (r.campaign_id ? manualFunnelById.get(r.campaign_id) : undefined) ??
-      autoFunnelByName.get(normCampaign(r.campaign_name));
-    if (!funil) continue; // campanha sem vínculo nem touches: não atribuível
+      funnelFromCampaignName(r.campaign_name);
     spendByFunnel.set(funil, (spendByFunnel.get(funil) ?? 0) + (r.spend || 0));
   }
 
@@ -219,11 +227,12 @@ export function computeFunnelMetrics(
         novosOrganicos: c.novosOrganicos,
         retornos: c.retornos,
         investimento,
-        cpl: c.novosPagos > 0 ? investimento / c.novosPagos : null,
+        cpl: c.novosPagos > 0 && investimento > 0 ? investimento / c.novosPagos : null,
       };
     })
     .sort(
       (a, b) =>
+        b.investimento - a.investimento ||
         b.novosPagos + b.novosOrganicos + b.retornos - (a.novosPagos + a.novosOrganicos + a.retornos) ||
         a.funil.localeCompare(b.funil),
     );
