@@ -24,3 +24,12 @@ export const LOST_STAGES = ['desqualificado', 'proposta_recusada'] as const;
 export function getStageLabel(value: string): string {
   return FUNNEL_STAGES.find(s => s.value === value)?.label ?? value;
 }
+
+export const NO_SHOW_REASONS = [
+  'Esqueceu da reunião',
+  'Imprevisto pessoal',
+  'Perdeu o interesse',
+  'Não respondeu à confirmação',
+  'Remarcou e não voltou',
+  'Outro',
+] as const;

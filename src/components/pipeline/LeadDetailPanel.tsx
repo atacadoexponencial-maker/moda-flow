@@ -22,7 +22,7 @@ import { Copy, ExternalLink, Trash2, CalendarIcon } from 'lucide-react';
 import { toast } from 'sonner';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { FUNNEL_STAGES, getStageLabel } from '@/lib/constants';
+import { FUNNEL_STAGES, NO_SHOW_REASONS, getStageLabel } from '@/lib/constants';
 import { supabase } from '@/integrations/supabase/client';
 import { useQueryClient } from '@tanstack/react-query';
 import { cn } from '@/lib/utils';
@@ -246,8 +246,10 @@ export function LeadDetailPanel({ lead, open, onClose }: LeadDetailPanelProps) {
   const [localLead, setLocalLead] = useState<Lead | null>(lead);
   const [savingField, setSavingField] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
+  // No-show só é persistido depois que o motivo for escolhido
+  const [noShowPending, setNoShowPending] = useState(false);
 
-  useEffect(() => { setLocalLead(lead); }, [lead]);
+  useEffect(() => { setLocalLead(lead); setNoShowPending(false); }, [lead]);
 
   if (!lead || !localLead) return null;
 
@@ -277,15 +279,46 @@ export function LeadDetailPanel({ lead, open, onClose }: LeadDetailPanelProps) {
   };
 
   const saveFlag = async (key: 'mql' | 'sql_flag' | 'ra_flag' | 'rr_flag', value: boolean) => {
-    const { error } = await supabase.from('leads').update({ [key]: value }).eq('id', localLead.id);
+    const patch: Partial<Lead> = { [key]: value };
+    // Ao marcar RR, registra a data da realização (hoje) se ainda não houver
+    if (key === 'rr_flag' && value && !localLead.data_rr) {
+      patch.data_rr = format(new Date(), 'yyyy-MM-dd');
+    }
+    const { error } = await supabase.from('leads').update(patch).eq('id', localLead.id);
     if (error) { toast.error('Erro ao salvar'); return; }
-    setLocalLead(prev => prev ? { ...prev, [key]: value } : prev);
+    setLocalLead(prev => prev ? { ...prev, ...patch } : prev);
     invalidate();
   };
 
+  const saveNoShow = async (patch: Partial<Lead>) => {
+    const { error } = await supabase.from('leads').update(patch).eq('id', localLead.id);
+    if (error) { toast.error('Erro ao salvar'); return; }
+    setLocalLead(prev => prev ? { ...prev, ...patch } : prev);
+    invalidate();
+  };
+
+  const toggleNoShow = (value: boolean) => {
+    if (value) {
+      // exige motivo antes de persistir
+      setNoShowPending(true);
+    } else {
+      setNoShowPending(false);
+      saveNoShow({ no_show: false, no_show_motivo: null });
+    }
+  };
+
+  const saveNoShowReason = async (motivo: string) => {
+    await saveNoShow({ no_show: true, no_show_motivo: motivo });
+    setNoShowPending(false);
+  };
+
   const saveStatus = async (value: string) => {
+    const from = localLead.status;
     const { error } = await supabase.from('leads').update({ status: value }).eq('id', localLead.id);
     if (error) { toast.error('Erro ao salvar'); return; }
+    // Mesmo registro de histórico feito pelo drag no pipeline
+    const content = `Status alterado de ${getStageLabel(from)} para ${getStageLabel(value)}`;
+    await supabase.from('activities').insert({ lead_id: localLead.id, type: 'status_change', content });
     setLocalLead(prev => prev ? { ...prev, status: value } : prev);
     invalidate();
   };
@@ -428,6 +461,58 @@ export function LeadDetailPanel({ lead, open, onClose }: LeadDetailPanelProps) {
               value={localLead.data_ra ?? null}
               onSave={v => saveDateField('data_ra', v)}
             />
+            <DatePickerField
+              label="Reunião realizada"
+              value={localLead.data_rr ?? null}
+              onSave={v => saveDateField('data_rr', v)}
+            />
+            <div className="space-y-0.5 col-span-2">
+              <p className="text-xs text-muted-foreground">No-show</p>
+              <div className="flex items-center gap-3 flex-wrap pt-1">
+                <label className="flex items-center gap-1 text-xs cursor-pointer">
+                  <Switch
+                    checked={!!localLead.no_show || noShowPending}
+                    onCheckedChange={toggleNoShow}
+                    className="scale-75"
+                  />
+                  Faltou à reunião
+                </label>
+                {(localLead.no_show || noShowPending) && (
+                  <Select
+                    value={
+                      localLead.no_show_motivo
+                        ? (NO_SHOW_REASONS as readonly string[]).includes(localLead.no_show_motivo)
+                          ? localLead.no_show_motivo
+                          : 'Outro'
+                        : undefined
+                    }
+                    onValueChange={saveNoShowReason}
+                  >
+                    <SelectTrigger className="h-8 text-sm w-[220px]">
+                      <SelectValue placeholder="Escolha o motivo…" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {NO_SHOW_REASONS.map(r => (
+                        <SelectItem key={r} value={r}>{r}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+                {(localLead.no_show || noShowPending) &&
+                  (localLead.no_show_motivo === 'Outro' ||
+                    (localLead.no_show_motivo && !(NO_SHOW_REASONS as readonly string[]).includes(localLead.no_show_motivo))) && (
+                  <div className="flex-1 min-w-[180px]">
+                    <InlineTextField
+                      label=""
+                      value={localLead.no_show_motivo === 'Outro' ? null : localLead.no_show_motivo}
+                      fieldKey="no_show_motivo"
+                      onSave={saveTextField}
+                      saving={savingField === 'no_show_motivo'}
+                    />
+                  </div>
+                )}
+              </div>
+            </div>
             <div className="space-y-0.5">
               <p className="text-xs text-muted-foreground">Data de Entrada</p>
               <div className="text-sm text-foreground">{formatDate(localLead.data_criada ?? localLead.created_at?.slice(0, 10))}</div>

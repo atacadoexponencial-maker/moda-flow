@@ -185,6 +185,7 @@ export type Database = {
           data_criada: string | null
           data_proximo_contato: string | null
           data_ra: string | null
+          data_rr: string | null
           data_ultimo_contato: string | null
           email: string | null
           email_norm: string | null
@@ -201,6 +202,8 @@ export type Database = {
           meta_campaign_id: string | null
           meta_lead_id: string | null
           mql: boolean | null
+          no_show: boolean | null
+          no_show_motivo: string | null
           nome: string
           objetivo: string | null
           oportunidade: number | null
@@ -225,6 +228,7 @@ export type Database = {
           data_criada?: string | null
           data_proximo_contato?: string | null
           data_ra?: string | null
+          data_rr?: string | null
           data_ultimo_contato?: string | null
           email?: string | null
           email_norm?: string | null
@@ -241,6 +245,8 @@ export type Database = {
           meta_campaign_id?: string | null
           meta_lead_id?: string | null
           mql?: boolean | null
+          no_show?: boolean | null
+          no_show_motivo?: string | null
           nome: string
           objetivo?: string | null
           oportunidade?: number | null
@@ -265,6 +271,7 @@ export type Database = {
           data_criada?: string | null
           data_proximo_contato?: string | null
           data_ra?: string | null
+          data_rr?: string | null
           data_ultimo_contato?: string | null
           email?: string | null
           email_norm?: string | null
@@ -281,6 +288,8 @@ export type Database = {
           meta_campaign_id?: string | null
           meta_lead_id?: string | null
           mql?: boolean | null
+          no_show?: boolean | null
+          no_show_motivo?: string | null
           nome?: string
           objetivo?: string | null
           oportunidade?: number | null
