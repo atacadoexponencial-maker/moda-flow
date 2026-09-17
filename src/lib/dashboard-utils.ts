@@ -109,6 +109,8 @@ export function aggregateTouchesByFunnel(touches: Touch[], range: PeriodRange): 
 
 export interface TouchWithCampaign extends Touch {
   utm_campaign: string | null;
+  meta_campaign_id?: string | null;
+  meta_ad_id?: string | null;
 }
 
 export interface MetaCacheRow {
@@ -161,6 +163,23 @@ function funnelFromCampaignName(name: string | null): string {
   }
   return ACQUISITION_BUCKET;
 }
+
+/**
+ * Resolve o funil de uma campanha: vínculo manual (precedência) ou token no
+ * nome. Mesmo critério usado em computeFunnelMetrics.
+ */
+export function resolveCampaignFunnel(
+  campaignId: string | null,
+  campaignName: string | null,
+  manualFunnelById: Map<string, string>,
+): string {
+  return (
+    (campaignId ? manualFunnelById.get(campaignId) : undefined) ??
+    funnelFromCampaignName(campaignName)
+  );
+}
+
+export const normalizeCampaignName = normCampaign;
 
 /**
  * Calcula, por funil e no período, as aquisições pagas vs orgânicas, os
