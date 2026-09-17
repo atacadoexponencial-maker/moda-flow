@@ -16,6 +16,13 @@ interface MetaInsightRow {
   clicks: number;
 }
 
+interface MetaAdInsightRow extends MetaInsightRow {
+  adset_id: string;
+  adset_name: string;
+  ad_id: string;
+  ad_name: string;
+}
+
 interface MetaApiResponse {
   data?: Array<Record<string, string>>;
   error?: { message?: string };
@@ -215,9 +222,82 @@ Deno.serve(async (req) => {
       }
     }
 
-    // 5. Return count
+    // 5. Fetch insights no nível de anúncio (conjunto + criativo), dia a dia.
+    //    Aditivo: erro aqui não derruba a sincronização de campanhas já gravada.
+    let adsSynced = 0;
+    let adsError: string | null = null;
+
+    const adFields =
+      "campaign_id,campaign_name,adset_id,adset_name,ad_id,ad_name,spend,impressions,clicks";
+    let adNextUrl: string | null =
+      `https://graph.facebook.com/v19.0/${config.ad_account_id}/insights` +
+      `?fields=${adFields}` +
+      `&date_preset=last_90d` +
+      `&time_increment=1` +
+      `&level=ad` +
+      `&limit=500`;
+
+    const adRows: MetaAdInsightRow[] = [];
+
+    while (adNextUrl) {
+      const response: Response = await fetch(adNextUrl, {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+      const json: MetaApiResponse = await response.json();
+
+      if (json.error) {
+        console.error("Meta API error (level=ad):", json.error);
+        adsError = json.error.message || "Erro na API do Meta (nível anúncio)";
+        break;
+      }
+
+      if (json.data) {
+        for (const row of json.data) {
+          adRows.push({
+            date_start: row.date_start,
+            date_stop: row.date_stop,
+            campaign_id: row.campaign_id,
+            campaign_name: row.campaign_name,
+            adset_id: row.adset_id,
+            adset_name: row.adset_name,
+            ad_id: row.ad_id,
+            ad_name: row.ad_name,
+            spend: parseFloat(row.spend || "0"),
+            impressions: parseInt(row.impressions || "0", 10),
+            clicks: parseInt(row.clicks || "0", 10),
+          });
+        }
+      }
+
+      adNextUrl = json.paging?.next ?? null;
+    }
+
+    if (!adsError) {
+      await adminClient
+        .from("meta_ads_insights")
+        .delete()
+        .neq("id", "00000000-0000-0000-0000-000000000000");
+
+      for (let i = 0; i < adRows.length; i += 500) {
+        const batch = adRows.slice(i, i + 500);
+        const { error: insertError } = await adminClient
+          .from("meta_ads_insights")
+          .insert(batch);
+        if (insertError) {
+          console.error("Insert error (meta_ads_insights):", insertError);
+        }
+      }
+      adsSynced = adRows.length;
+    }
+
+    // 6. Return counts
     return new Response(
-      JSON.stringify({ success: true, campaigns_synced: allRows.length }),
+      JSON.stringify({
+        success: true,
+        campaigns_synced: allRows.length,
+        ads_synced: adsSynced,
+        ...(adsError ? { ads_error: adsError } : {}),
+      }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (err) {

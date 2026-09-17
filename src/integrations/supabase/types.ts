@@ -336,6 +336,54 @@ export type Database = {
         }
         Relationships: []
       }
+      meta_ads_insights: {
+        Row: {
+          ad_id: string | null
+          ad_name: string | null
+          adset_id: string | null
+          adset_name: string | null
+          campaign_id: string | null
+          campaign_name: string | null
+          clicks: number | null
+          date_start: string | null
+          date_stop: string | null
+          fetched_at: string
+          id: string
+          impressions: number | null
+          spend: number | null
+        }
+        Insert: {
+          ad_id?: string | null
+          ad_name?: string | null
+          adset_id?: string | null
+          adset_name?: string | null
+          campaign_id?: string | null
+          campaign_name?: string | null
+          clicks?: number | null
+          date_start?: string | null
+          date_stop?: string | null
+          fetched_at?: string
+          id?: string
+          impressions?: number | null
+          spend?: number | null
+        }
+        Update: {
+          ad_id?: string | null
+          ad_name?: string | null
+          adset_id?: string | null
+          adset_name?: string | null
+          campaign_id?: string | null
+          campaign_name?: string | null
+          clicks?: number | null
+          date_start?: string | null
+          date_stop?: string | null
+          fetched_at?: string
+          id?: string
+          impressions?: number | null
+          spend?: number | null
+        }
+        Relationships: []
+      }
       meta_config: {
         Row: {
           ad_account_id: string | null
