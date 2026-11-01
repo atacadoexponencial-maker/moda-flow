@@ -26,6 +26,7 @@ import { LeadsFilters, EMPTY_FILTERS, type LeadsFilterState } from '@/components
 import { useLeadsFilterOptions, applyLeadFilters } from '@/lib/leads-filter-utils';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useTeamMembers } from '@/hooks/useTeamMembers';
+import { useAuth } from '@/hooks/useAuth';
 import { assigneeInitials, assigneeLabel } from '@/lib/team';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 
@@ -172,6 +173,7 @@ function cn(...classes: (string | boolean | undefined)[]) {
 export default function PipelinePage() {
   const queryClient = useQueryClient();
   const isMobile = useIsMobile();
+  const { user } = useAuth();
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
 
   const [filters, setFilters] = useState<LeadsFilterState>({ ...EMPTY_FILTERS });
@@ -201,7 +203,7 @@ export default function PipelinePage() {
   });
 
   const { utmSources, faturamentos, produtos, funis } = useLeadsFilterOptions(allLeads);
-  const leads = useMemo(() => applyLeadFilters(allLeads, filters), [allLeads, filters]);
+  const leads = useMemo(() => applyLeadFilters(allLeads, filters, { currentUserId: user?.id }), [allLeads, filters, user?.id]);
 
   const moveMutation = useMutation({
     mutationFn: async ({ leadId, from, to, extra }: { leadId: string; from: string; to: string; extra?: Record<string, unknown> }) => {

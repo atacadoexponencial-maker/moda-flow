@@ -46,8 +46,38 @@ export function useLeadsFilterOptions(leads: Lead[]) {
   return { utmSources, faturamentos, produtos, funis };
 }
 
-export function applyLeadFilters(leads: Lead[], filters: LeadsFilterState): Lead[] {
-  return leads.filter(lead => {
+/** Valores especiais do filtro de responsável; qualquer outro valor é um user_id. */
+export const ASSIGNEE_ALL = 'all';
+export const ASSIGNEE_ME = 'me';
+export const ASSIGNEE_NONE = 'none';
+
+export interface FilterContext {
+  /** id do usuário logado, usado para resolver "meus leads". */
+  currentUserId?: string | null;
+}
+
+/**
+ * Filtro por responsável, compartilhado por Pipeline, Leads e Hoje.
+ * - 'all': não filtra; 'me': leads do usuário logado (nenhum se não houver usuário);
+ * - 'none': sem responsável; outro valor: leads daquele user_id.
+ */
+export function applyAssigneeFilter<T extends { assigned_to: string | null }>(
+  leads: T[],
+  assignedTo: string,
+  currentUserId?: string | null,
+): T[] {
+  if (!assignedTo || assignedTo === ASSIGNEE_ALL) return leads;
+  if (assignedTo === ASSIGNEE_ME) {
+    if (!currentUserId) return [];
+    return leads.filter(l => l.assigned_to === currentUserId);
+  }
+  if (assignedTo === ASSIGNEE_NONE) return leads.filter(l => !l.assigned_to);
+  return leads.filter(l => l.assigned_to === assignedTo);
+}
+
+export function applyLeadFilters(leads: Lead[], filters: LeadsFilterState, ctx: FilterContext = {}): Lead[] {
+  const byAssignee = applyAssigneeFilter(leads, filters.assignedTo ?? ASSIGNEE_ALL, ctx.currentUserId);
+  return byAssignee.filter(lead => {
     if (filters.search) {
       const q = filters.search.toLowerCase();
       const matches = [lead.nome, lead.email, lead.whatsapp].some(f => f?.toLowerCase().includes(q));

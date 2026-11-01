@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { renderHook } from "@testing-library/react";
-import { applyLeadFilters, useLeadsFilterOptions } from "@/lib/leads-filter-utils";
+import { applyLeadFilters, useLeadsFilterOptions, applyAssigneeFilter, ASSIGNEE_ALL, ASSIGNEE_ME, ASSIGNEE_NONE } from "@/lib/leads-filter-utils";
 import { EMPTY_FILTERS } from "@/components/leads/LeadsFilters";
 import type { Tables } from "@/integrations/supabase/types";
 
@@ -101,5 +101,54 @@ describe("useLeadsFilterOptions", () => {
       "De 30 a 40 Mil",
       "Mais de 500 Mil",
     ]);
+  });
+});
+
+describe("filtro por responsável", () => {
+  const me = "u-me";
+  const other = "u-other";
+  const leads = [
+    makeLead({ id: "a", nome: "Meu 1", assigned_to: me }),
+    makeLead({ id: "b", nome: "Meu 2", assigned_to: me }),
+    makeLead({ id: "c", nome: "Dela", assigned_to: other }),
+    makeLead({ id: "d", nome: "Ninguém", assigned_to: null }),
+  ];
+
+  it("CA-S1-09: 'Meus leads' no Pipeline e na tabela mostra só os leads do usuário logado", () => {
+    const ids = applyLeadFilters(leads, { ...EMPTY_FILTERS, assignedTo: ASSIGNEE_ME }, { currentUserId: me }).map(l => l.id);
+    expect(ids).toEqual(["a", "b"]);
+    // sem usuário logado, "meus" não mostra nada
+    expect(applyLeadFilters(leads, { ...EMPTY_FILTERS, assignedTo: ASSIGNEE_ME }, {})).toHaveLength(0);
+    // combina com os demais filtros
+    const comb = applyLeadFilters(leads, { ...EMPTY_FILTERS, assignedTo: ASSIGNEE_ME, search: "meu 2" }, { currentUserId: me });
+    expect(comb.map(l => l.id)).toEqual(["b"]);
+  });
+
+  it("CA-S1-10: filtrar por outra pessoa ou por 'sem responsável' mostra só os correspondentes", () => {
+    expect(applyLeadFilters(leads, { ...EMPTY_FILTERS, assignedTo: other }, { currentUserId: me }).map(l => l.id)).toEqual(["c"]);
+    expect(applyLeadFilters(leads, { ...EMPTY_FILTERS, assignedTo: ASSIGNEE_NONE }, { currentUserId: me }).map(l => l.id)).toEqual(["d"]);
+    expect(applyLeadFilters(leads, { ...EMPTY_FILTERS, assignedTo: ASSIGNEE_ALL }, { currentUserId: me })).toHaveLength(4);
+    expect(applyLeadFilters(leads, EMPTY_FILTERS)).toHaveLength(4);
+  });
+
+  it("CA-S1-11: em Hoje, 'Meus' restringe atrasados, para hoje e reuniões aos leads do usuário; 'Todos' devolve tudo", () => {
+    const todayStr = "2026-11-01";
+    const hoje = [
+      makeLead({ id: "o1", assigned_to: me, data_proximo_contato: "2026-10-20" }),
+      makeLead({ id: "o2", assigned_to: other, data_proximo_contato: "2026-10-25" }),
+      makeLead({ id: "t1", assigned_to: me, data_proximo_contato: todayStr }),
+      makeLead({ id: "t2", assigned_to: null, data_proximo_contato: todayStr }),
+      makeLead({ id: "r1", assigned_to: other, data_ra: todayStr, ra_flag: true }),
+      makeLead({ id: "r2", assigned_to: me, data_ra: todayStr, ra_flag: true }),
+    ];
+    const split = (list: typeof hoje) => ({
+      overdue: list.filter(l => l.data_proximo_contato && l.data_proximo_contato < todayStr).map(l => l.id),
+      forToday: list.filter(l => l.data_proximo_contato === todayStr).map(l => l.id),
+      meetings: list.filter(l => l.data_ra === todayStr && l.ra_flag).map(l => l.id),
+    });
+    expect(split(applyAssigneeFilter(hoje, ASSIGNEE_ME, me))).toEqual({ overdue: ["o1"], forToday: ["t1"], meetings: ["r2"] });
+    expect(split(applyAssigneeFilter(hoje, ASSIGNEE_ALL, me))).toEqual({
+      overdue: ["o1", "o2"], forToday: ["t1", "t2"], meetings: ["r1", "r2"],
+    });
   });
 });

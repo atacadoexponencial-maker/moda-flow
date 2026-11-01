@@ -10,6 +10,9 @@ import { format, subDays, startOfMonth, startOfWeek, endOfWeek, subMonths, start
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { FUNNEL_STAGES } from '@/lib/constants';
+import { ASSIGNEE_ALL, ASSIGNEE_ME, ASSIGNEE_NONE } from '@/lib/leads-filter-utils';
+import { useTeamMembers } from '@/hooks/useTeamMembers';
+import { displayName, UNASSIGNED_LABEL } from '@/lib/team';
 
 export interface LeadsFilterState {
   search: string;
@@ -20,6 +23,8 @@ export interface LeadsFilterState {
   faturamento: string;
   produto: string;
   funil: string;
+  /** 'all' | 'me' | 'none' | user_id */
+  assignedTo: string;
   dateFrom: Date | undefined;
   dateTo: Date | undefined;
 }
@@ -27,6 +32,7 @@ export interface LeadsFilterState {
 export const EMPTY_FILTERS: LeadsFilterState = {
   search: '', status: 'all', mql: 'all', sql: 'all',
   utmSource: 'all', faturamento: 'all', produto: 'all', funil: 'all',
+  assignedTo: 'all',
   dateFrom: undefined, dateTo: undefined,
 };
 
@@ -110,6 +116,7 @@ const DATE_SHORTCUTS = [
 
 export function LeadsFilters({ filters, onChange, utmSources, faturamentos, produtos, funis }: Props) {
   const [open, setOpen] = useState(false);
+  const { data: members = [] } = useTeamMembers();
 
   const set = <K extends keyof LeadsFilterState>(key: K, val: LeadsFilterState[K]) =>
     onChange({ ...filters, [key]: val });
@@ -127,6 +134,7 @@ export function LeadsFilters({ filters, onChange, utmSources, faturamentos, prod
     filters.faturamento !== 'all',
     filters.mql !== 'all',
     filters.sql !== 'all',
+    filters.assignedTo !== ASSIGNEE_ALL,
     filters.dateFrom !== undefined,
     filters.dateTo !== undefined,
   ].filter(Boolean).length;
@@ -146,6 +154,16 @@ export function LeadsFilters({ filters, onChange, utmSources, faturamentos, prod
         onChange={e => set('search', e.target.value)}
         className="w-64 h-9"
       />
+
+      <Button
+        variant={filters.assignedTo === ASSIGNEE_ME ? 'default' : 'outline'}
+        size="sm"
+        className="h-9"
+        onClick={() => set('assignedTo', filters.assignedTo === ASSIGNEE_ME ? ASSIGNEE_ALL : ASSIGNEE_ME)}
+        aria-pressed={filters.assignedTo === ASSIGNEE_ME}
+      >
+        Meus leads
+      </Button>
 
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
@@ -182,6 +200,21 @@ export function LeadsFilters({ filters, onChange, utmSources, faturamentos, prod
                   <SelectItem value="all">Todos os Status</SelectItem>
                   {FUNNEL_STAGES.map(s => (
                     <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-xs text-muted-foreground">Responsável</label>
+              <Select value={filters.assignedTo} onValueChange={v => set('assignedTo', v)}>
+                <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Todos" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={ASSIGNEE_ALL}>Todos</SelectItem>
+                  <SelectItem value={ASSIGNEE_ME}>Meus leads</SelectItem>
+                  <SelectItem value={ASSIGNEE_NONE}>{UNASSIGNED_LABEL}</SelectItem>
+                  {members.map(m => (
+                    <SelectItem key={m.user_id} value={m.user_id}>{displayName(m.email)}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>

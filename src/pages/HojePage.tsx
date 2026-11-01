@@ -9,6 +9,9 @@ import { format, differenceInDays, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { getStageLabel } from '@/lib/constants';
 import { LeadDetailPanel } from '@/components/pipeline/LeadDetailPanel';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { useAuth } from '@/hooks/useAuth';
+import { applyAssigneeFilter, ASSIGNEE_ALL, ASSIGNEE_ME } from '@/lib/leads-filter-utils';
 import type { Tables } from '@/integrations/supabase/types';
 
 type Lead = Tables<'leads'>;
@@ -85,9 +88,11 @@ function OverdueRow({ lead, onView }: { lead: Lead; onView: () => void }) {
 
 export default function HojePage() {
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
+  const [scope, setScope] = useState<string>(ASSIGNEE_ALL);
+  const { user } = useAuth();
   const todayStr = today();
 
-  const { data: leads = [], isLoading } = useQuery({
+  const { data: allLeads = [], isLoading } = useQuery({
     queryKey: ['leads-hoje', todayStr],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -113,6 +118,9 @@ export default function HojePage() {
       return Array.from(map.values());
     },
   });
+
+  // Meus / Todos: mesma regra de responsável usada em Pipeline e Leads
+  const leads = useMemo(() => applyAssigneeFilter(allLeads, scope, user?.id), [allLeads, scope, user?.id]);
 
   const overdue = useMemo(() =>
     leads
@@ -143,11 +151,19 @@ export default function HojePage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-bold text-foreground">Hoje</h2>
-        <p className="text-sm text-muted-foreground">
-          {format(new Date(), "EEEE, dd 'de' MMMM", { locale: ptBR })}
-        </p>
+      <div className="flex items-start justify-between gap-3 flex-wrap">
+        <div>
+          <h2 className="text-2xl font-bold text-foreground">Hoje</h2>
+          <p className="text-sm text-muted-foreground">
+            {format(new Date(), "EEEE, dd 'de' MMMM", { locale: ptBR })}
+          </p>
+        </div>
+        <Tabs value={scope} onValueChange={setScope}>
+          <TabsList className="h-8">
+            <TabsTrigger value={ASSIGNEE_ME} className="text-xs px-3">Meus</TabsTrigger>
+            <TabsTrigger value={ASSIGNEE_ALL} className="text-xs px-3">Todos</TabsTrigger>
+          </TabsList>
+        </Tabs>
       </div>
 
       {isEmpty ? (

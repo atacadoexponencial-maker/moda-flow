@@ -19,6 +19,7 @@ import { LeadsFilters, EMPTY_FILTERS, type LeadsFilterState } from '@/components
 import { useLeadsFilterOptions, applyLeadFilters } from '@/lib/leads-filter-utils';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useTeamMembers } from '@/hooks/useTeamMembers';
+import { useAuth } from '@/hooks/useAuth';
 import { assigneeLabel, UNASSIGNED_LABEL } from '@/lib/team';
 import type { Tables, TablesUpdate } from '@/integrations/supabase/types';
 import { type FieldDef } from '@/pages/CamposPage';
@@ -226,6 +227,7 @@ function LeadCard({ lead, onClick }: { lead: Lead; onClick: () => void }) {
 export default function LeadsPage() {
   const isMobile = useIsMobile();
   const queryClient = useQueryClient();
+  const { user } = useAuth();
   const [filters, setFilters] = useState<LeadsFilterState>({ ...EMPTY_FILTERS });
   const [sortKey, setSortKey] = useState<SortKey>('entrada');
   const [sortDir, setSortDir] = useState<SortDir>('desc');
@@ -279,7 +281,7 @@ export default function LeadsPage() {
   const { data: members = [] } = useTeamMembers();
   const { utmSources, faturamentos, produtos, funis } = useLeadsFilterOptions(allLeads);
 
-  const filtered = useMemo(() => applyLeadFilters(allLeads, filters), [allLeads, filters]);
+  const filtered = useMemo(() => applyLeadFilters(allLeads, filters, { currentUserId: user?.id }), [allLeads, filters, user?.id]);
 
   const sorted = useMemo(() => {
     const arr = [...filtered];
@@ -305,7 +307,7 @@ export default function LeadsPage() {
       return sortDir === 'asc' ? cmp : -cmp;
     });
     return arr;
-  }, [filtered, sortKey, sortDir]);
+  }, [filtered, sortKey, sortDir, members]);
 
   const totalPages = Math.ceil(sorted.length / PER_PAGE);
   const paginated = sorted.slice(page * PER_PAGE, (page + 1) * PER_PAGE);
