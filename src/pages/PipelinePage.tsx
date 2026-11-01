@@ -23,6 +23,7 @@ import { useDraggable, useDroppable } from '@dnd-kit/core';
 import { MoveDialog, type MoveDialogType } from '@/components/pipeline/MoveDialog';
 import { LeadDetailPanel } from '@/components/pipeline/LeadDetailPanel';
 import { LeadsFilters, EMPTY_FILTERS, type LeadsFilterState } from '@/components/leads/LeadsFilters';
+import { SavedViewsSelect } from '@/components/leads/SavedViewsSelect';
 import { useLeadsFilterOptions, applyLeadFilters } from '@/lib/leads-filter-utils';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useTeamMembers } from '@/hooks/useTeamMembers';
@@ -288,14 +289,17 @@ export default function PipelinePage() {
         </p>
       </div>
 
-      <LeadsFilters
-        filters={filters}
-        onChange={setFilters}
-        utmSources={utmSources}
-        faturamentos={faturamentos}
-        produtos={produtos}
-        funis={funis}
-      />
+      <div className="flex flex-wrap items-center gap-2">
+        <SavedViewsSelect page="pipeline" filters={filters} funis={funis} onApply={setFilters} />
+        <LeadsFilters
+          filters={filters}
+          onChange={setFilters}
+          utmSources={utmSources}
+          faturamentos={faturamentos}
+          produtos={produtos}
+          funis={funis}
+        />
+      </div>
 
       {isLoading ? (
         <div className="flex gap-3 overflow-hidden">

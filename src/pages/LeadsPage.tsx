@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef, useEffect } from 'react';
+import { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -16,6 +16,7 @@ import { FUNNEL_STAGES, getStageLabel } from '@/lib/constants';
 import { LeadDetailPanel } from '@/components/pipeline/LeadDetailPanel';
 import { NewLeadDialog } from '@/components/leads/NewLeadDialog';
 import { LeadsFilters, EMPTY_FILTERS, type LeadsFilterState } from '@/components/leads/LeadsFilters';
+import { SavedViewsSelect } from '@/components/leads/SavedViewsSelect';
 import { useLeadsFilterOptions, applyLeadFilters } from '@/lib/leads-filter-utils';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useTeamMembers } from '@/hooks/useTeamMembers';
@@ -282,6 +283,8 @@ export default function LeadsPage() {
   const { data: members = [] } = useTeamMembers();
   const { utmSources, faturamentos, produtos, funis } = useLeadsFilterOptions(allLeads);
 
+  const applyView = useCallback((f: LeadsFilterState) => { setFilters(f); setPage(0); }, []);
+
   const filtered = useMemo(() => applyLeadFilters(allLeads, filters, { currentUserId: user?.id }), [allLeads, filters, user?.id]);
 
   const sorted = useMemo(() => {
@@ -420,14 +423,17 @@ export default function LeadsPage() {
         </div>
       </div>
 
-      <LeadsFilters
-        filters={filters}
-        onChange={f => { setFilters(f); setPage(0); }}
-        utmSources={utmSources}
-        faturamentos={faturamentos}
-        produtos={produtos}
-        funis={funis}
-      />
+      <div className="flex flex-wrap items-center gap-2">
+        <SavedViewsSelect page="leads" filters={filters} funis={funis} onApply={applyView} />
+        <LeadsFilters
+          filters={filters}
+          onChange={f => { setFilters(f); setPage(0); }}
+          utmSources={utmSources}
+          faturamentos={faturamentos}
+          produtos={produtos}
+          funis={funis}
+        />
+      </div>
 
       {/* ── MOBILE: Stacked cards ── */}
       {isMobile ? (
