@@ -49,6 +49,54 @@ export type Database = {
           },
         ]
       }
+      activity_attachments: {
+        Row: {
+          activity_id: string
+          created_at: string
+          id: string
+          lead_id: string
+          mime: string
+          name: string
+          path: string
+          size: number
+        }
+        Insert: {
+          activity_id: string
+          created_at?: string
+          id?: string
+          lead_id: string
+          mime: string
+          name: string
+          path: string
+          size: number
+        }
+        Update: {
+          activity_id?: string
+          created_at?: string
+          id?: string
+          lead_id?: string
+          mime?: string
+          name?: string
+          path?: string
+          size?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "activity_attachments_activity_id_fkey"
+            columns: ["activity_id"]
+            isOneToOne: false
+            referencedRelation: "activities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "activity_attachments_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       funnel_campaigns: {
         Row: {
           campaign_id: string
