@@ -18,7 +18,7 @@ import { NewLeadDialog } from '@/components/leads/NewLeadDialog';
 import { LeadsFilters, EMPTY_FILTERS, type LeadsFilterState } from '@/components/leads/LeadsFilters';
 import { useLeadsFilterOptions, applyLeadFilters } from '@/lib/leads-filter-utils';
 import { useIsMobile } from '@/hooks/use-mobile';
-import type { Tables } from '@/integrations/supabase/types';
+import type { Tables, TablesUpdate } from '@/integrations/supabase/types';
 import { type FieldDef } from '@/pages/CamposPage';
 
 type Lead = Tables<'leads'>;
@@ -316,7 +316,7 @@ export default function LeadsPage() {
   };
 
   const handleInlineSave = async (leadId: string, field: EditableField, newValue: string | number | null) => {
-    const { error } = await supabase.from('leads').update({ [field]: newValue }).eq('id', leadId);
+    const { error } = await supabase.from('leads').update({ [field]: newValue } as TablesUpdate<'leads'>).eq('id', leadId);
     if (error) return;
     queryClient.setQueryData<Lead[]>(['leads-table'], old =>
       old?.map(l => l.id === leadId ? { ...l, [field]: newValue } : l) ?? []

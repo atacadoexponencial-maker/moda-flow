@@ -29,7 +29,7 @@ import { cn } from '@/lib/utils';
 import { LeadActivities } from '@/components/pipeline/LeadActivities';
 import { LeadTouches } from '@/components/pipeline/LeadTouches';
 import { useIsMobile } from '@/hooks/use-mobile';
-import type { Tables } from '@/integrations/supabase/types';
+import type { Tables, TablesUpdate } from '@/integrations/supabase/types';
 
 type Lead = Tables<'leads'>;
 
@@ -262,7 +262,7 @@ export function LeadDetailPanel({ lead, open, onClose }: LeadDetailPanelProps) {
 
   const saveTextField = async (key: StringLeadKey, value: string | null) => {
     setSavingField(key);
-    const { error } = await supabase.from('leads').update({ [key]: value }).eq('id', localLead.id);
+    const { error } = await supabase.from('leads').update({ [key]: value } as TablesUpdate<'leads'>).eq('id', localLead.id);
     setSavingField(null);
     if (error) { toast.error('Erro ao salvar'); return; }
     setLocalLead(prev => prev ? { ...prev, [key]: value } : prev);
@@ -271,7 +271,7 @@ export function LeadDetailPanel({ lead, open, onClose }: LeadDetailPanelProps) {
 
   const saveNumberField = async (key: NumberLeadKey, value: number | null) => {
     setSavingField(key);
-    const { error } = await supabase.from('leads').update({ [key]: value }).eq('id', localLead.id);
+    const { error } = await supabase.from('leads').update({ [key]: value } as TablesUpdate<'leads'>).eq('id', localLead.id);
     setSavingField(null);
     if (error) { toast.error('Erro ao salvar'); return; }
     setLocalLead(prev => prev ? { ...prev, [key]: value } : prev);
@@ -324,7 +324,7 @@ export function LeadDetailPanel({ lead, open, onClose }: LeadDetailPanelProps) {
   };
 
   const saveDateField = async (key: StringLeadKey, value: string | null) => {
-    const { error } = await supabase.from('leads').update({ [key]: value }).eq('id', localLead.id);
+    const { error } = await supabase.from('leads').update({ [key]: value } as TablesUpdate<'leads'>).eq('id', localLead.id);
     if (error) { toast.error('Erro ao salvar'); return; }
     setLocalLead(prev => prev ? { ...prev, [key]: value } : prev);
     invalidate();

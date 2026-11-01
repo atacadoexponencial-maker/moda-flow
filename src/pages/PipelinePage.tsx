@@ -8,7 +8,7 @@ import { WON_STAGES, LOST_STAGES, getStageLabel } from '@/lib/constants';
 import { format, isToday, isTomorrow, isYesterday, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { toast } from 'sonner';
-import type { Tables } from '@/integrations/supabase/types';
+import type { Tables, TablesUpdate } from '@/integrations/supabase/types';
 import {
   DndContext,
   DragOverlay,
@@ -191,7 +191,7 @@ export default function PipelinePage() {
 
   const moveMutation = useMutation({
     mutationFn: async ({ leadId, from, to, extra }: { leadId: string; from: string; to: string; extra?: Record<string, unknown> }) => {
-      const updateData: Record<string, unknown> = { status: to, ...extra };
+      const updateData = { status: to, ...extra } as TablesUpdate<'leads'>;
       const { error: updateError } = await supabase.from('leads').update(updateData).eq('id', leadId);
       if (updateError) throw updateError;
 

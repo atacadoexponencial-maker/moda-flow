@@ -1,73 +1,45 @@
-# Welcome to your Lovable project
+# moda-flow — CRM interno
 
-## Project info
+CRM de gestão de leads e pipeline comercial de uso interno. Substitui o CRM que roda hoje
+no ClickUp. Os leads chegam pelo tracking (`tracking-avancado`) via webhook e são
+deduplicados no banco por WhatsApp/e-mail, com histórico de entradas (touches).
 
-**URL**: https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID
+## Stack
 
-## How can I edit this code?
+- **Frontend:** React 18 + TypeScript + Vite, shadcn/ui (Radix + Tailwind), TanStack Query,
+  React Router v6, @dnd-kit, Recharts. Interface em pt-BR.
+- **Backend:** Supabase (Postgres com RLS, Edge Functions em Deno, Vault para segredos,
+  pg_cron para sincronizações).
+- **Deploy:** frontend na Vercel (produção a partir de `origin/main`); backend via Supabase CLI.
 
-There are several ways of editing your application.
-
-**Use Lovable**
-
-Simply visit the [Lovable Project](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and start prompting.
-
-Changes made via Lovable will be committed automatically to this repo.
-
-**Use your preferred IDE**
-
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
-
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
+## Rodando localmente
 
 ```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
 npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
+npm run dev        # http://localhost:8080
+npm run test       # Vitest
+npm run lint       # ESLint
+npx tsc -p tsconfig.app.json --noEmit   # typecheck (o build do Vite não checa tipos)
 ```
 
-**Edit a file directly in GitHub**
+Variáveis de ambiente em `.env` (não commitado): `VITE_SUPABASE_URL`,
+`VITE_SUPABASE_PUBLISHABLE_KEY`, `VITE_SUPABASE_PROJECT_ID`.
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+## Deploy
 
-**Use GitHub Codespaces**
+- **Frontend:** push em `origin/main` dispara o deploy na Vercel. O trabalho local é em `master`.
+- **Migrations:** `supabase db push`
+- **Edge Functions:** `supabase functions deploy <nome>` (ou sem nome para todas)
+- **Tipos:** `supabase gen types typescript --project-id ynjxvzjomizfyabupvne > src/integrations/supabase/types.ts`
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+Detalhes de arquitetura e convenções em `CLAUDE.md`.
 
-## What technologies are used for this project?
+## Mapa do projeto
 
-This project is built with:
-
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
-
-## How can I deploy this project?
-
-Simply open [Lovable](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and click on Share -> Publish.
-
-## Can I connect a custom domain to my Lovable project?
-
-Yes, you can!
-
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+- `src/pages/` páginas roteadas (pipeline, leads, hoje, dashboard, configurações)
+- `src/components/` componentes por funcionalidade; `ui/` são os primitivos do shadcn
+- `src/lib/` regras puras testadas (estágios do funil, filtros, métricas do dashboard)
+- `supabase/functions/` Edge Functions (webhook de leads, importação CSV, Meta Ads, WhatsApp, usuários)
+- `supabase/migrations/` schema, triggers de dedup/touches, cron
+- `issues/` issues do fluxo de desenvolvimento (`concluidos/` e `descartadas/`)
+- `docs/specs-arquivadas/` specs de mudanças que já entraram no ar

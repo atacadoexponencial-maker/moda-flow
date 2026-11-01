@@ -23,9 +23,6 @@ plano-implementacao-crm.md
 prompts-lovable.md
 teste
 atualizacoes-ajustes/
-docs/
-issues/
-spec.md
 supabase/.temp/
 
 # Editor directories and files
@@ -38,3 +35,5 @@ supabase/.temp/
 *.njsproj
 *.sln
 *.sw?
+.vercel
+.env*
