@@ -29,6 +29,9 @@ import { cn } from '@/lib/utils';
 import { LeadActivities } from '@/components/pipeline/LeadActivities';
 import { LeadTouches } from '@/components/pipeline/LeadTouches';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { useAuth } from '@/hooks/useAuth';
+import { useTeamMembers } from '@/hooks/useTeamMembers';
+import { displayName, canAssume, assignPatch, UNASSIGNED_LABEL } from '@/lib/team';
 import type { Tables, TablesUpdate } from '@/integrations/supabase/types';
 
 type Lead = Tables<'leads'>;
@@ -243,6 +246,8 @@ interface LeadDetailPanelProps {
 export function LeadDetailPanel({ lead, open, onClose }: LeadDetailPanelProps) {
   const queryClient = useQueryClient();
   const isMobile = useIsMobile();
+  const { user } = useAuth();
+  const { data: members = [] } = useTeamMembers();
   const [localLead, setLocalLead] = useState<Lead | null>(lead);
   const [savingField, setSavingField] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -320,6 +325,18 @@ export function LeadDetailPanel({ lead, open, onClose }: LeadDetailPanelProps) {
     const content = `Status alterado de ${getStageLabel(from)} para ${getStageLabel(value)}`;
     await supabase.from('activities').insert({ lead_id: localLead.id, type: 'status_change', content });
     setLocalLead(prev => prev ? { ...prev, status: value } : prev);
+    invalidate();
+  };
+
+  const UNASSIGNED = '__none__';
+
+  const saveAssignedTo = async (value: string | null) => {
+    if ((localLead.assigned_to ?? null) === value) return;
+    setSavingField('assigned_to');
+    const { error } = await supabase.from('leads').update({ assigned_to: value }).eq('id', localLead.id);
+    setSavingField(null);
+    if (error) { toast.error('Erro ao salvar'); return; }
+    setLocalLead(prev => prev ? { ...prev, assigned_to: value } : prev);
     invalidate();
   };
 
@@ -430,6 +447,37 @@ export function LeadDetailPanel({ lead, open, onClose }: LeadDetailPanelProps) {
                   ))}
                 </SelectContent>
               </Select>
+            </div>
+            <div className="space-y-0.5">
+              <p className="text-xs text-muted-foreground">Responsável</p>
+              <div className="flex items-center gap-1.5">
+                <Select
+                  value={localLead.assigned_to ?? UNASSIGNED}
+                  onValueChange={v => saveAssignedTo(v === UNASSIGNED ? null : v)}
+                  disabled={savingField === 'assigned_to'}
+                >
+                  <SelectTrigger className="h-8 text-sm flex-1">
+                    <SelectValue placeholder={UNASSIGNED_LABEL} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={UNASSIGNED}>{UNASSIGNED_LABEL}</SelectItem>
+                    {members.map(m => (
+                      <SelectItem key={m.user_id} value={m.user_id}>{displayName(m.email)}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {canAssume(localLead, user?.id) && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-8 text-xs shrink-0"
+                    onClick={() => user && saveAssignedTo(assignPatch(user.id).assigned_to)}
+                    disabled={savingField === 'assigned_to'}
+                  >
+                    Assumir
+                  </Button>
+                )}
+              </div>
             </div>
             <div className="space-y-0.5">
               <p className="text-xs text-muted-foreground">Qualificação</p>

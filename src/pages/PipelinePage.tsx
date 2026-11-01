@@ -25,6 +25,8 @@ import { LeadDetailPanel } from '@/components/pipeline/LeadDetailPanel';
 import { LeadsFilters, EMPTY_FILTERS, type LeadsFilterState } from '@/components/leads/LeadsFilters';
 import { useLeadsFilterOptions, applyLeadFilters } from '@/lib/leads-filter-utils';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { useTeamMembers } from '@/hooks/useTeamMembers';
+import { assigneeInitials, assigneeLabel } from '@/lib/team';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 
 type Lead = Tables<'leads'>;
@@ -88,9 +90,21 @@ function DraggableLeadCard({ lead, onClick }: { lead: Lead; onClick: (lead: Lead
 
 function LeadCardContent({ lead }: { lead: Lead }) {
   const proximo = formatProximoContato(lead.data_proximo_contato);
+  const { data: members = [] } = useTeamMembers();
+  const ini = assigneeInitials(members, lead.assigned_to);
   return (
     <Card className="p-3 space-y-2 cursor-grab active:cursor-grabbing hover:shadow-md transition-shadow">
-      <p className="font-semibold text-sm text-foreground leading-tight truncate">{lead.nome}</p>
+      <div className="flex items-start justify-between gap-2">
+        <p className="font-semibold text-sm text-foreground leading-tight truncate">{lead.nome}</p>
+        {ini && (
+          <span
+            title={assigneeLabel(members, lead.assigned_to)}
+            className="shrink-0 inline-flex h-5 w-5 items-center justify-center rounded-full bg-primary/15 text-primary text-[10px] font-semibold"
+          >
+            {ini}
+          </span>
+        )}
+      </div>
       {lead.faturamento_mensal && (
         <p className="text-xs text-muted-foreground truncate">{lead.faturamento_mensal}</p>
       )}

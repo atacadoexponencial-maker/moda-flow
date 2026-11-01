@@ -18,11 +18,13 @@ import { NewLeadDialog } from '@/components/leads/NewLeadDialog';
 import { LeadsFilters, EMPTY_FILTERS, type LeadsFilterState } from '@/components/leads/LeadsFilters';
 import { useLeadsFilterOptions, applyLeadFilters } from '@/lib/leads-filter-utils';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { useTeamMembers } from '@/hooks/useTeamMembers';
+import { assigneeLabel, UNASSIGNED_LABEL } from '@/lib/team';
 import type { Tables, TablesUpdate } from '@/integrations/supabase/types';
 import { type FieldDef } from '@/pages/CamposPage';
 
 type Lead = Tables<'leads'>;
-type SortKey = 'nome' | 'entrada' | 'status' | 'faturamento_mensal' | 'oportunidade' | 'data_proximo_contato' | 'mql' | 'sql_flag' | 'utm_source';
+type SortKey = 'nome' | 'entrada' | 'status' | 'faturamento_mensal' | 'oportunidade' | 'data_proximo_contato' | 'mql' | 'sql_flag' | 'utm_source' | 'assigned_to';
 type SortDir = 'asc' | 'desc';
 
 const PER_PAGE = 20;
@@ -38,6 +40,7 @@ const FALLBACK_FIELDS: FieldDef[] = [
   { id: '7', key: 'mql',                  label: 'MQL',           field_type: 'boolean', options: null, visible: true, sort_order: 6, is_system: true, created_at: '' },
   { id: '8', key: 'sql_flag',             label: 'SQL',           field_type: 'boolean', options: null, visible: true, sort_order: 7, is_system: true, created_at: '' },
   { id: '9', key: 'utm_source',           label: 'Fonte',         field_type: 'text',    options: null, visible: true, sort_order: 8, is_system: true, created_at: '' },
+  { id: '10', key: 'assigned_to',         label: 'Responsável',   field_type: 'text',    options: null, visible: true, sort_order: 9, is_system: true, created_at: '' },
 ];
 
 const FATURAMENTO_OPTIONS = [
@@ -273,6 +276,7 @@ export default function LeadsPage() {
     },
   });
 
+  const { data: members = [] } = useTeamMembers();
   const { utmSources, faturamentos, produtos, funis } = useLeadsFilterOptions(allLeads);
 
   const filtered = useMemo(() => applyLeadFilters(allLeads, filters), [allLeads, filters]);
@@ -292,6 +296,7 @@ export default function LeadsPage() {
         case 'mql': av = a.mql ? 1 : 0; bv = b.mql ? 1 : 0; break;
         case 'sql_flag': av = a.sql_flag ? 1 : 0; bv = b.sql_flag ? 1 : 0; break;
         case 'utm_source': av = a.utm_source ?? ''; bv = b.utm_source ?? ''; break;
+        case 'assigned_to': av = a.assigned_to ? assigneeLabel(members, a.assigned_to) : ''; bv = b.assigned_to ? assigneeLabel(members, b.assigned_to) : ''; break;
       }
       if (av === bv) return 0;
       if (av === null || av === '') return 1;
@@ -352,9 +357,10 @@ export default function LeadsPage() {
       return s.includes(',') || s.includes(';') || s.includes('"') || s.includes('\n') ? `"${s.replace(/"/g, '""')}"` : s;
     };
 
-    const headers = ['Nome','E-mail','WhatsApp','Instagram','Status','Funil','Produto','Faturamento Mensal','Oportunidade','Arrecadado','MQL','SQL','RA','RR','Data de Entrada','Último Contato','Próximo Contato','RA (data)','Justificativa','Objetivo','Motivo de Perda','utm_source','utm_medium','utm_content','utm_campaign','utm_posicion'];
+    const headers = ['Nome','E-mail','WhatsApp','Instagram','Responsável','Status','Funil','Produto','Faturamento Mensal','Oportunidade','Arrecadado','MQL','SQL','RA','RR','Data de Entrada','Último Contato','Próximo Contato','RA (data)','Justificativa','Objetivo','Motivo de Perda','utm_source','utm_medium','utm_content','utm_campaign','utm_posicion'];
     const rows = sorted.map(l => [
       esc(l.nome), esc(l.email), esc(l.whatsapp), esc(l.instagram),
+      esc(l.assigned_to ? assigneeLabel(members, l.assigned_to) : ''),
       esc(getStageLabel(l.status)), esc(l.funil), esc(l.produto), esc(l.faturamento_mensal),
       fmtMoney(l.oportunidade), fmtMoney(l.arrecadado),
       bool(l.mql), bool(l.sql_flag), bool(l.ra_flag), bool(l.rr_flag),
@@ -450,6 +456,7 @@ export default function LeadsPage() {
                 {effectiveVisible('mql')                  && <SortableHead col="mql" className="text-center">MQL</SortableHead>}
                 {effectiveVisible('sql_flag')             && <SortableHead col="sql_flag" className="text-center">SQL</SortableHead>}
                 {effectiveVisible('utm_source')           && <SortableHead col="utm_source">Fonte</SortableHead>}
+                {effectiveVisible('assigned_to')          && <SortableHead col="assigned_to">Responsável</SortableHead>}
                 {fieldDefs.filter(f => !f.is_system && effectiveVisible(f.key)).map(f => (
                   <TableHead key={f.key}>{f.label}</TableHead>
                 ))}
@@ -471,6 +478,7 @@ export default function LeadsPage() {
                   {effectiveVisible('mql')                && <TableCell className="text-center"><BoolIcon val={lead.mql} /></TableCell>}
                   {effectiveVisible('sql_flag')           && <TableCell className="text-center"><BoolIcon val={lead.sql_flag} /></TableCell>}
                   {effectiveVisible('utm_source')         && <TableCell className="text-xs max-w-[120px] truncate">{lead.utm_source ?? '—'}</TableCell>}
+                  {effectiveVisible('assigned_to')        && <TableCell className="text-xs whitespace-nowrap">{lead.assigned_to ? assigneeLabel(members, lead.assigned_to) : <span className="text-muted-foreground/60">{UNASSIGNED_LABEL}</span>}</TableCell>}
                   {fieldDefs.filter(f => !f.is_system && effectiveVisible(f.key)).map(f => (
                     <TableCell key={f.key} className="text-xs max-w-[150px] truncate">
                       {(lead.custom_data as Record<string, string> | null)?.[f.key] ?? '—'}
