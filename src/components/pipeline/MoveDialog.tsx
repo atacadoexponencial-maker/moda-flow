@@ -11,15 +11,7 @@ import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { getStageLabel } from '@/lib/constants';
-
-const LOSS_REASONS = [
-  'Sem dinheiro no momento',
-  'Não viu valor no produto',
-  'Foi para o concorrente',
-  'Sem tempo agora',
-  'Não respondeu mais',
-  'Outro',
-] as const;
+import { LOSS_REASONS, OTHER_LOSS_REASON, resolveLossReason } from '@/lib/loss-reason';
 
 export type MoveDialogType = 'arrecadado' | 'loss_reason' | 'data_proximo_contato' | 'data_ra';
 
@@ -45,7 +37,7 @@ export function MoveDialog({ open, type, targetStage, onConfirm, onCancel }: Mov
       if (!val || isNaN(val)) return;
       onConfirm({ arrecadado: val });
     } else if (type === 'loss_reason') {
-      const reason = lossReason === 'Outro' ? otherReason.trim() : lossReason;
+      const reason = resolveLossReason(lossReason, otherReason);
       if (!reason) return;
       onConfirm({ loss_reason: reason });
     } else if (type === 'data_proximo_contato') {
@@ -62,7 +54,7 @@ export function MoveDialog({ open, type, targetStage, onConfirm, onCancel }: Mov
       const val = parseFloat(arrecadado.replace(/[^\d.,]/g, '').replace(',', '.'));
       return !!val && !isNaN(val);
     }
-    if (type === 'loss_reason') return lossReason === 'Outro' ? otherReason.trim().length > 0 : lossReason.length > 0;
+    if (type === 'loss_reason') return resolveLossReason(lossReason, otherReason) !== null;
     return !!date;
   };
 
@@ -97,7 +89,7 @@ export function MoveDialog({ open, type, targetStage, onConfirm, onCancel }: Mov
                   </div>
                 ))}
               </RadioGroup>
-              {lossReason === 'Outro' && (
+              {lossReason === OTHER_LOSS_REASON && (
                 <Input
                   placeholder="Descreva o motivo"
                   value={otherReason}

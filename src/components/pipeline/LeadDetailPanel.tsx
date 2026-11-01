@@ -32,6 +32,7 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import { useAuth } from '@/hooks/useAuth';
 import { useTeamMembers } from '@/hooks/useTeamMembers';
 import { displayName, canAssume, assignPatch, UNASSIGNED_LABEL } from '@/lib/team';
+import { LOSS_REASONS, OTHER_LOSS_REASON, resolveLossReason, lossReasonSelectValue, lossReasonOtherText } from '@/lib/loss-reason';
 import type { Tables, TablesUpdate } from '@/integrations/supabase/types';
 
 type Lead = Tables<'leads'>;
@@ -253,8 +254,10 @@ export function LeadDetailPanel({ lead, open, onClose }: LeadDetailPanelProps) {
   const [deleting, setDeleting] = useState(false);
   // No-show só é persistido depois que o motivo for escolhido
   const [noShowPending, setNoShowPending] = useState(false);
+  // "Outro" no motivo de perda: a caixa de texto aparece antes de haver texto salvo
+  const [lossOtherPending, setLossOtherPending] = useState(false);
 
-  useEffect(() => { setLocalLead(lead); setNoShowPending(false); }, [lead]);
+  useEffect(() => { setLocalLead(lead); setNoShowPending(false); setLossOtherPending(false); }, [lead]);
 
   if (!lead || !localLead) return null;
 
@@ -329,6 +332,34 @@ export function LeadDetailPanel({ lead, open, onClose }: LeadDetailPanelProps) {
   };
 
   const UNASSIGNED = '__none__';
+
+  const saveLossReason = async (value: string | null) => {
+    if ((localLead.loss_reason ?? null) === value) return;
+    setSavingField('loss_reason');
+    const { error } = await supabase.from('leads').update({ loss_reason: value }).eq('id', localLead.id);
+    setSavingField(null);
+    if (error) { toast.error('Erro ao salvar'); return; }
+    setLocalLead(prev => prev ? { ...prev, loss_reason: value } : prev);
+    invalidate();
+  };
+
+  const onLossReasonSelect = (selected: string) => {
+    if (selected === OTHER_LOSS_REASON) {
+      // mantém o texto livre já gravado (se houver) e abre a caixa de texto
+      setLossOtherPending(true);
+      return;
+    }
+    setLossOtherPending(false);
+    const resolved = resolveLossReason(selected, '');
+    if (resolved) saveLossReason(resolved);
+  };
+
+  const onLossOtherText = async (_key: StringLeadKey, text: string | null) => {
+    const resolved = resolveLossReason(OTHER_LOSS_REASON, text);
+    if (!resolved) return; // vazio: não grava nada até digitar
+    await saveLossReason(resolved);
+    setLossOtherPending(false);
+  };
 
   const saveAssignedTo = async (value: string | null) => {
     if ((localLead.assigned_to ?? null) === value) return;
@@ -577,7 +608,32 @@ export function LeadDetailPanel({ lead, open, onClose }: LeadDetailPanelProps) {
             <InlineTextField label="Faturamento mensal" value={localLead.faturamento_mensal} fieldKey="faturamento_mensal" onSave={saveTextField} saving={savingField === 'faturamento_mensal'} />
             <InlineNumberField label="Oportunidade (R$)" value={localLead.oportunidade} fieldKey="oportunidade" onSave={saveNumberField} saving={savingField === 'oportunidade'} format={formatCurrency} />
             <InlineNumberField label="Arrecadado (R$)" value={localLead.arrecadado} fieldKey="arrecadado" onSave={saveNumberField} saving={savingField === 'arrecadado'} format={formatCurrency} />
-            <InlineTextField label="Motivo de perda" value={localLead.loss_reason} fieldKey="loss_reason" onSave={saveTextField} saving={savingField === 'loss_reason'} />
+            <div className="space-y-0.5">
+              <p className="text-xs text-muted-foreground">Motivo de perda</p>
+              <Select
+                value={lossOtherPending ? OTHER_LOSS_REASON : lossReasonSelectValue(localLead.loss_reason)}
+                onValueChange={onLossReasonSelect}
+                disabled={savingField === 'loss_reason'}
+              >
+                <SelectTrigger className="h-8 text-sm">
+                  <SelectValue placeholder="—" />
+                </SelectTrigger>
+                <SelectContent>
+                  {LOSS_REASONS.map(r => (
+                    <SelectItem key={r} value={r}>{r}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {(lossOtherPending || lossReasonSelectValue(localLead.loss_reason) === OTHER_LOSS_REASON) && (
+                <InlineTextField
+                  label=""
+                  value={lossReasonOtherText(localLead.loss_reason) || null}
+                  fieldKey="loss_reason"
+                  onSave={onLossOtherText}
+                  saving={savingField === 'loss_reason'}
+                />
+              )}
+            </div>
           </div>
 
           <Separator />
