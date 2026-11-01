@@ -14,6 +14,7 @@ import { ArrowLeft, Loader2, UserPlus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { ROLE_OPTIONS, roleLabel, canManageUsers, canEditRole, canDeleteUser } from "@/lib/roles";
 
 interface UserItem {
   id: string;
@@ -21,12 +22,6 @@ interface UserItem {
   created_at: string;
   role: string | null;
 }
-
-const ROLE_LABELS: Record<string, string> = {
-  proprietário: "Proprietário",
-  admin: "Admin",
-  vendedor: "Vendedor",
-};
 
 const UsersPage = () => {
   const navigate = useNavigate();
@@ -37,36 +32,24 @@ const UsersPage = () => {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [myRole, setMyRole] = useState<string | null>(null);
+  const [myId, setMyId] = useState<string | null>(null);
 
   const loadUsers = useCallback(async () => {
     try {
-      const [usersRes, rolesRes, authRes] = await Promise.all([
+      const [usersRes, authRes] = await Promise.all([
         supabase.functions.invoke("manage-users", { body: { action: "list" } }),
-        supabase.from("user_roles").select("user_id, role"),
         supabase.auth.getUser(),
       ]);
 
       if (usersRes.error) throw usersRes.error;
       if (usersRes.data?.error) throw new Error(usersRes.data.error);
 
-      const rolesMap = new Map<string, string>();
-      for (const r of rolesRes.data || []) {
-        rolesMap.set(r.user_id, r.role);
-      }
-
-      // Set current user's role
-      const currentUserId = authRes.data?.user?.id;
-      if (currentUserId) {
-        setMyRole(rolesMap.get(currentUserId) ?? null);
-      }
-
-      type AuthUser = Omit<UserItem, "role">;
-      const merged: UserItem[] = ((usersRes.data.users || []) as AuthUser[]).map((u) => ({
-        ...u,
-        role: rolesMap.get(u.id) || null,
-      }));
-
-      setUsers(merged);
+      // O papel de cada usuário já vem do servidor junto com a lista.
+      const list = (usersRes.data.users || []) as UserItem[];
+      const currentUserId = authRes.data?.user?.id ?? null;
+      setMyId(currentUserId);
+      setMyRole(currentUserId ? (list.find((u) => u.id === currentUserId)?.role ?? null) : null);
+      setUsers(list);
     } catch (err) {
       toast.error(getErrorMessage(err, "Erro ao carregar usuários"));
     } finally {
@@ -116,9 +99,9 @@ const UsersPage = () => {
       setUsers((prev) =>
         prev.map((u) => (u.id === userId ? { ...u, role: newRole } : u))
       );
-      toast.success("Role atualizada");
+      toast.success("Papel atualizado");
     } catch (err) {
-      toast.error(getErrorMessage(err, "Erro ao atualizar role"));
+      toast.error(getErrorMessage(err, "Erro ao atualizar papel"));
     }
   };
 
@@ -142,7 +125,7 @@ const UsersPage = () => {
     }
   };
 
-  const isOwner = myRole === "proprietário";
+  const canManage = canManageUsers(myRole);
 
   return (
     <div className="space-y-6 max-w-4xl">
@@ -156,7 +139,7 @@ const UsersPage = () => {
             Gerencie os usuários e suas permissões.
           </p>
         </div>
-        {isOwner && (
+        {canManage && (
           <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
             <DialogTrigger asChild>
               <Button size="sm">
@@ -208,37 +191,37 @@ const UsersPage = () => {
               <TableHeader>
                 <TableRow>
                   <TableHead>Email</TableHead>
-                  <TableHead>Role</TableHead>
+                  <TableHead>Papel</TableHead>
                   <TableHead>Criado em</TableHead>
                   <TableHead className="w-[80px]">Ações</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {users.map((user) => {
-                  const isProprietario = user.role === "proprietário";
-                  const canEditRole = isOwner && !isProprietario;
+                  const editable = canEditRole(myRole, user.role);
+                  const deletable = canDeleteUser(myRole, user.role, user.id === myId);
 
                   return (
                     <TableRow key={user.id}>
                       <TableCell className="font-medium">{user.email}</TableCell>
                       <TableCell>
-                        {canEditRole ? (
+                        {editable ? (
                           <Select
                             value={user.role || ""}
                             onValueChange={(v) => handleRoleChange(user.id, v)}
                           >
                             <SelectTrigger className="w-[140px] h-8">
-                              <SelectValue placeholder="Sem role" />
+                              <SelectValue placeholder="Sem papel" />
                             </SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="proprietário">Proprietário</SelectItem>
-                              <SelectItem value="admin">Admin</SelectItem>
-                              <SelectItem value="vendedor">Vendedor</SelectItem>
+                              {ROLE_OPTIONS.map((opt) => (
+                                <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                              ))}
                             </SelectContent>
                           </Select>
                         ) : (
                           <Badge variant="secondary">
-                            {ROLE_LABELS[user.role ?? ""] ?? user.role ?? "Sem role"}
+                            {roleLabel(user.role)}
                           </Badge>
                         )}
                       </TableCell>
@@ -246,13 +229,13 @@ const UsersPage = () => {
                         {format(new Date(user.created_at), "dd/MM/yyyy", { locale: ptBR })}
                       </TableCell>
                       <TableCell>
-                        {isOwner && (
+                        {canManage && (
                           <Button
                             variant="ghost"
                             size="icon"
                             className="h-8 w-8 text-muted-foreground hover:text-destructive"
                             onClick={() => handleDelete(user.id)}
-                            disabled={deletingId === user.id || isProprietario}
+                            disabled={deletingId === user.id || !deletable}
                           >
                             {deletingId === user.id ? (
                               <Loader2 className="h-4 w-4 animate-spin" />

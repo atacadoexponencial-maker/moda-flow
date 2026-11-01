@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+import { getCrmRole } from "../_shared/authorize.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -37,16 +38,10 @@ Deno.serve(async (req) => {
 
     const adminClient = createClient(supabaseUrl, serviceRoleKey);
 
-    // Autorização: listar, convidar e apagar usuários exige role = 'admin' em
-    // user_roles, verificado no servidor (mesmo padrão de clear-crm).
-    const { data: roleData, error: roleError } = await adminClient
-      .from("user_roles")
-      .select("role")
-      .eq("user_id", userData.user.id)
-      .eq("role", "admin")
-      .maybeSingle();
-
-    if (roleError || !roleData) {
+    // Autorização: listar, convidar e apagar usuários exige papel proprietário
+    // ou admin em user_roles, verificado no servidor (regra em _shared/authorize.ts).
+    const callerRole = await getCrmRole(adminClient, userData.user.id);
+    if (!callerRole) {
       return new Response(JSON.stringify({ error: "Forbidden" }), {
         status: 403,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -59,10 +54,20 @@ Deno.serve(async (req) => {
       const { data, error } = await adminClient.auth.admin.listUsers({ perPage: 100 });
       if (error) throw error;
 
+      // Papel de cada usuário vai junto, para a tela não precisar de outra consulta.
+      const { data: roles, error: rolesError } = await adminClient
+        .from("user_roles")
+        .select("user_id, role");
+      if (rolesError) throw rolesError;
+      const roleByUser = new Map<string, string>(
+        (roles ?? []).map((r: { user_id: string; role: string }) => [r.user_id, r.role]),
+      );
+
       const users = (data?.users || []).map((u) => ({
         id: u.id,
         email: u.email,
         created_at: u.created_at,
+        role: roleByUser.get(u.id) ?? null,
       }));
 
       return new Response(JSON.stringify({ users }), {
@@ -85,6 +90,15 @@ Deno.serve(async (req) => {
     if (action === "delete") {
       const { user_id } = params;
       if (!user_id) throw new Error("user_id é obrigatório");
+
+      // O proprietário nunca é removido (o banco também recusa via trigger).
+      const targetRole = await getCrmRole(adminClient, user_id);
+      if (targetRole === "proprietario") {
+        return new Response(JSON.stringify({ error: "O proprietário não pode ser removido" }), {
+          status: 403,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
 
       const { error } = await adminClient.auth.admin.deleteUser(user_id);
       if (error) throw error;

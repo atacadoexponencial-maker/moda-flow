@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+import { getCrmRole } from "../_shared/authorize.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -38,15 +39,9 @@ Deno.serve(async (req) => {
 
     const adminClient = createClient(supabaseUrl, serviceRoleKey);
 
-    // Autorização: exige role = 'admin' em user_roles (verificado no servidor).
-    const { data: roleData, error: roleError } = await adminClient
-      .from("user_roles")
-      .select("role")
-      .eq("user_id", userData.user.id)
-      .eq("role", "admin")
-      .maybeSingle();
-
-    if (roleError || !roleData) {
+    // Autorização: exige papel proprietário ou admin (regra em _shared/authorize.ts).
+    const callerRole = await getCrmRole(adminClient, userData.user.id);
+    if (!callerRole) {
       return new Response(JSON.stringify({ error: "Forbidden" }), {
         status: 403,
         headers: { ...corsHeaders, "Content-Type": "application/json" },

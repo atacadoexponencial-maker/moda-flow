@@ -323,6 +323,7 @@ com um nome, para abrir de novo com um clique. Há visões prontas para todos.
 | SUP-S1-04 | Limites de anexo: até 5 arquivos por atividade, 10 MB cada; tipos aceitos: imagens (jpg, png, webp, gif) e PDF. Validado no ClickUp em 2026-11-01: em 120 cards recentes, 108 tinham anexo (98 com 1, 8 com 2, 2 com 3); 118 PNG e 2 PDF, nenhum áudio; tamanho mediano 320 KB, máximo 439 KB. | confirmada | Marcelle, 2026-11-01. |
 | SUP-S1-05 | A regra de retorno vale para qualquer canal de entrada (webhook, importação, criação manual), porque todos passam pelo mesmo ponto de deduplicação. | confirmada | Marcelle, 2026-11-01. |
 | SUP-S1-06 | Motivos de perda antigos (texto livre) não são convertidos para a nova lista; ficam como estão e aparecem como "Outro" com o texto. | confirmada | Marcelle, 2026-11-01. |
+| SUP-S1-07 | Provas que dependem do banco rodam como testes de integração contra o projeto Supabase de produção, criando usuários temporários `@teste.com` e apagando tudo ao final; só executam quando o `.env` local tem a service role (no CI ficam pulados). | confirmada | Marcelle, 2026-11-01. |
 
 ## Perguntas em aberto
 
