@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
-import { FileText, Phone, CalendarDays, ArrowRightLeft, Send, UserCheck, Paperclip, X, File as FileIcon } from 'lucide-react';
+import { FileText, Phone, CalendarDays, ArrowRightLeft, Send, UserCheck, Paperclip, X, File as FileIcon, RotateCcw } from 'lucide-react';
 import { toast } from 'sonner';
 import { formatDistanceToNow, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -29,6 +29,7 @@ const TYPE_CONFIG: Record<string, { icon: React.ElementType; label: string }> = 
   meeting: { icon: CalendarDays, label: 'Reunião' },
   status_change: { icon: ArrowRightLeft, label: 'Mudança' },
   assignment: { icon: UserCheck, label: 'Responsável' },
+  lead_voltou: { icon: RotateCcw, label: 'Voltou' },
 };
 
 const CREATABLE_TYPES = [

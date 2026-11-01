@@ -21,6 +21,7 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import { useTeamMembers } from '@/hooks/useTeamMembers';
 import { useAuth } from '@/hooks/useAuth';
 import { assigneeLabel, UNASSIGNED_LABEL } from '@/lib/team';
+import { hasRecentReturn } from '@/lib/lead-return';
 import type { Tables, TablesUpdate } from '@/integrations/supabase/types';
 import { type FieldDef } from '@/pages/CamposPage';
 
@@ -471,7 +472,7 @@ export default function LeadsPage() {
                 <TableRow><TableCell colSpan={visibleCount} className="text-center py-8 text-muted-foreground">Nenhum lead encontrado</TableCell></TableRow>
               ) : paginated.map(lead => (
                 <TableRow key={lead.id} className="cursor-pointer hover:bg-muted/50" onClick={() => setSelectedLead(lead)}>
-                  {effectiveVisible('nome')               && <TableCell className="font-medium max-w-[200px]"><EditableCell value={lead.nome} leadId={lead.id} field="nome" onSave={handleInlineSave} /></TableCell>}
+                  {effectiveVisible('nome')               && <TableCell className="font-medium max-w-[220px]"><div className="flex items-center gap-1.5"><EditableCell value={lead.nome} leadId={lead.id} field="nome" onSave={handleInlineSave} />{hasRecentReturn(lead) && <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-amber-500/60 text-amber-700 dark:text-amber-400 shrink-0">Voltou</Badge>}</div></TableCell>}
                   {effectiveVisible('entrada')            && <TableCell className="text-xs whitespace-nowrap">{formatDate(getEntrada(lead))}</TableCell>}
                   {effectiveVisible('status')             && <TableCell><EditableCell value={lead.status} leadId={lead.id} field="status" onSave={handleInlineSave} /></TableCell>}
                   {effectiveVisible('faturamento_mensal') && <TableCell className="text-xs"><EditableCell value={lead.faturamento_mensal} leadId={lead.id} field="faturamento_mensal" onSave={handleInlineSave} /></TableCell>}

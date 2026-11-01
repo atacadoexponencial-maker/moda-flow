@@ -28,6 +28,7 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import { useTeamMembers } from '@/hooks/useTeamMembers';
 import { useAuth } from '@/hooks/useAuth';
 import { assigneeInitials, assigneeLabel } from '@/lib/team';
+import { hasRecentReturn } from '@/lib/lead-return';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 
 type Lead = Tables<'leads'>;
@@ -110,6 +111,7 @@ function LeadCardContent({ lead }: { lead: Lead }) {
         <p className="text-xs text-muted-foreground truncate">{lead.faturamento_mensal}</p>
       )}
       <div className="flex items-center gap-1.5 flex-wrap">
+        {hasRecentReturn(lead) && <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-amber-500/60 text-amber-700 dark:text-amber-400">Voltou</Badge>}
         {lead.mql && <Badge className="text-[10px] px-1.5 py-0 bg-accent text-accent-foreground">MQL</Badge>}
         {lead.sql_flag && <Badge className="text-[10px] px-1.5 py-0 bg-primary text-primary-foreground">SQL</Badge>}
         {proximo && <span className="text-[10px] text-muted-foreground ml-auto">📅 {proximo}</span>}

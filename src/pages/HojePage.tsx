@@ -4,7 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { ExternalLink, Eye, Phone, CalendarClock, AlertTriangle, CalendarDays } from 'lucide-react';
+import { Eye, Phone, CalendarClock, AlertTriangle, CalendarDays, RotateCcw } from 'lucide-react';
 import { format, differenceInDays, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { getStageLabel } from '@/lib/constants';
@@ -12,6 +12,7 @@ import { LeadDetailPanel } from '@/components/pipeline/LeadDetailPanel';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuth } from '@/hooks/useAuth';
 import { applyAssigneeFilter, ASSIGNEE_ALL, ASSIGNEE_ME } from '@/lib/leads-filter-utils';
+import { recentReturns, returnCutoffIso } from '@/lib/lead-return';
 import type { Tables } from '@/integrations/supabase/types';
 
 type Lead = Tables<'leads'>;
@@ -113,8 +114,15 @@ export default function HojePage() {
 
       if (raErr) throw raErr;
 
+      // Leads que voltaram no período de destaque (seção "Voltaram")
+      const { data: returned, error: retErr } = await supabase
+        .from('leads')
+        .select('*')
+        .gte('last_return_at', returnCutoffIso());
+      if (retErr) throw retErr;
+
       const map = new Map<string, Lead>();
-      [...(data ?? []), ...(raLeads ?? [])].forEach(l => map.set(l.id, l));
+      [...(data ?? []), ...(raLeads ?? []), ...(returned ?? [])].forEach(l => map.set(l.id, l));
       return Array.from(map.values());
     },
   });
@@ -139,7 +147,9 @@ export default function HojePage() {
     [leads, todayStr]
   );
 
-  const isEmpty = overdue.length === 0 && forToday.length === 0 && meetings.length === 0;
+  const returned = useMemo(() => recentReturns(leads), [leads]);
+
+  const isEmpty = overdue.length === 0 && forToday.length === 0 && meetings.length === 0 && returned.length === 0;
 
   if (isLoading) {
     return (
@@ -205,6 +215,24 @@ export default function HojePage() {
               </CardHeader>
               <CardContent className="space-y-0.5">
                 {forToday.map(lead => (
+                  <LeadRow key={lead.id} lead={lead} onView={() => setSelectedLead(lead)} />
+                ))}
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Voltaram */}
+          {returned.length > 0 && (
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <RotateCcw className="h-4 w-4 text-amber-600" />
+                  Voltaram
+                  <Badge variant="outline" className="ml-1 border-amber-500/60 text-amber-700 dark:text-amber-400">{returned.length}</Badge>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-0.5">
+                {returned.map(lead => (
                   <LeadRow key={lead.id} lead={lead} onView={() => setSelectedLead(lead)} />
                 ))}
               </CardContent>

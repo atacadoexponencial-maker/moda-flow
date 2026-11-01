@@ -246,6 +246,7 @@ export type Database = {
           id: string
           instagram: string | null
           justificativa: string | null
+          last_return_at: string | null
           loss_reason: string | null
           meta_ad_id: string | null
           meta_campaign_id: string | null
@@ -290,6 +291,7 @@ export type Database = {
           id?: string
           instagram?: string | null
           justificativa?: string | null
+          last_return_at?: string | null
           loss_reason?: string | null
           meta_ad_id?: string | null
           meta_campaign_id?: string | null
@@ -334,6 +336,7 @@ export type Database = {
           id?: string
           instagram?: string | null
           justificativa?: string | null
+          last_return_at?: string | null
           loss_reason?: string | null
           meta_ad_id?: string | null
           meta_campaign_id?: string | null
@@ -638,6 +641,7 @@ export type Database = {
         Args: { config_id: string }
         Returns: undefined
       }
+      lead_return_reopens: { Args: { p_status: string }; Returns: boolean }
       normalize_email: { Args: { raw: string }; Returns: string }
       normalize_whatsapp: { Args: { raw: string }; Returns: string }
       team_members: {
