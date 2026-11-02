@@ -9,6 +9,7 @@ import LoginPage from "@/pages/LoginPage";
 import PipelinePage from "@/pages/PipelinePage";
 import LeadsPage from "@/pages/LeadsPage";
 import HojePage from "@/pages/HojePage";
+import ConversasPage from "@/pages/ConversasPage";
 import DashboardPage from "@/pages/DashboardPage";
 import ConfiguracoesPage from "@/pages/ConfiguracoesPage";
 import ImportLeadsPage from "@/pages/ImportLeadsPage";
@@ -42,6 +43,7 @@ function AuthenticatedRoutes() {
         <Route path="/pipeline" element={<PipelinePage />} />
         <Route path="/leads" element={<LeadsPage />} />
         <Route path="/hoje" element={<HojePage />} />
+        <Route path="/conversas" element={<ConversasPage />} />
         <Route path="/dashboard" element={<DashboardPage />} />
         <Route path="/configuracoes" element={<ConfiguracoesPage />} />
         <Route path="/configuracoes/importar" element={<ImportLeadsPage />} />

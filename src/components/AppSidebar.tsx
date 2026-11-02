@@ -1,4 +1,5 @@
-import { Columns3, List, CalendarDays, BarChart3, Settings } from 'lucide-react';
+import { Columns3, List, CalendarDays, BarChart3, Settings, MessageCircle } from 'lucide-react';
+import { useWhatsAppInbox } from '@/hooks/useWhatsAppInbox';
 import { NavLink } from '@/components/NavLink';
 import { useLocation } from 'react-router-dom';
 import {
@@ -16,6 +17,7 @@ const navItems = [
   { title: 'Pipeline', url: '/pipeline', icon: Columns3 },
   { title: 'Leads', url: '/leads', icon: List },
   { title: 'Hoje', url: '/hoje', icon: CalendarDays },
+  { title: 'Conversas', url: '/conversas', icon: MessageCircle },
   { title: 'Dashboard', url: '/dashboard', icon: BarChart3 },
   { title: 'Configurações', url: '/configuracoes', icon: Settings },
 ];
@@ -24,6 +26,7 @@ export function AppSidebar() {
   const { state } = useSidebar();
   const collapsed = state === 'collapsed';
   const location = useLocation();
+  const { unread } = useWhatsAppInbox();
 
   return (
     <Sidebar collapsible="icon">
@@ -52,8 +55,21 @@ export function AppSidebar() {
                       className="hover:bg-sidebar-accent/50"
                       activeClassName="bg-sidebar-accent text-sidebar-accent-foreground font-medium"
                     >
-                      <item.icon className="mr-2 h-4 w-4" />
-                      {!collapsed && <span>{item.title}</span>}
+                      <span className="relative mr-2 inline-flex">
+                        <item.icon className="h-4 w-4" />
+                        {item.url === '/conversas' && unread > 0 && collapsed && (
+                          <span className="absolute -top-1.5 -right-1.5 h-2.5 w-2.5 rounded-full bg-primary" aria-hidden />
+                        )}
+                      </span>
+                      {!collapsed && <span className="flex-1">{item.title}</span>}
+                      {!collapsed && item.url === '/conversas' && unread > 0 && (
+                        <span
+                          className="ml-auto inline-flex min-w-5 h-5 items-center justify-center rounded-full bg-primary text-primary-foreground text-[10px] px-1.5"
+                          aria-label={`${unread} mensagens não lidas`}
+                        >
+                          {unread > 99 ? '99+' : unread}
+                        </span>
+                      )}
                     </NavLink>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
