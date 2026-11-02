@@ -10,3 +10,4 @@ do esquema de séries e ficam como estão.
 | Série | Spec | Pasta de concluídas |
 |---|---|---|
 | S1 | `spec-operacao-comercial.md` — Operação comercial mínima (papéis, responsável, motivo de perda, anexos, retorno de lead, visões salvas) | `issues/concluidas_S1/` |
+| S2 | `spec-chat-whatsapp.md` — Chat WhatsApp via Cloud API oficial (número compartilhado, conversa por lead, caixa de entrada, templates) | `issues/concluidas_S2/` |
