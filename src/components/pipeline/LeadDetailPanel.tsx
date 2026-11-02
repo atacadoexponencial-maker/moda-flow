@@ -29,6 +29,8 @@ import { cn } from '@/lib/utils';
 import { LeadActivities } from '@/components/pipeline/LeadActivities';
 import { LeadTouches } from '@/components/pipeline/LeadTouches';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { LeadConversation } from '@/components/whatsapp/LeadConversation';
 import { useAuth } from '@/hooks/useAuth';
 import { useTeamMembers } from '@/hooks/useTeamMembers';
 import { displayName, canAssume, assignPatch, UNASSIGNED_LABEL } from '@/lib/team';
@@ -242,9 +244,11 @@ interface LeadDetailPanelProps {
   lead: Lead | null;
   open: boolean;
   onClose: () => void;
+  /** Aba inicial ao abrir (a caixa de entrada abre direto na Conversa). */
+  initialTab?: 'dados' | 'conversa';
 }
 
-export function LeadDetailPanel({ lead, open, onClose }: LeadDetailPanelProps) {
+export function LeadDetailPanel({ lead, open, onClose, initialTab = 'dados' }: LeadDetailPanelProps) {
   const queryClient = useQueryClient();
   const isMobile = useIsMobile();
   const { user } = useAuth();
@@ -257,7 +261,11 @@ export function LeadDetailPanel({ lead, open, onClose }: LeadDetailPanelProps) {
   // "Outro" no motivo de perda: a caixa de texto aparece antes de haver texto salvo
   const [lossOtherPending, setLossOtherPending] = useState(false);
 
+  const [tab, setTab] = useState<'dados' | 'conversa'>(initialTab);
+  const [unread, setUnread] = useState(0);
+
   useEffect(() => { setLocalLead(lead); setNoShowPending(false); setLossOtherPending(false); }, [lead]);
+  useEffect(() => { if (open) setTab(initialTab); }, [open, lead?.id, initialTab]);
 
   if (!lead || !localLead) return null;
 
@@ -433,6 +441,29 @@ export function LeadDetailPanel({ lead, open, onClose }: LeadDetailPanelProps) {
           </AlertDialog>
         </SheetHeader>
 
+        <Tabs value={tab} onValueChange={(v) => setTab(v as 'dados' | 'conversa')} className="mt-3">
+          <TabsList className="h-8">
+            <TabsTrigger value="dados" className="text-xs px-3">Dados</TabsTrigger>
+            <TabsTrigger value="conversa" className="text-xs px-3 gap-1.5">
+              Conversa
+              {unread > 0 && (
+                <span className="inline-flex min-w-4 h-4 items-center justify-center rounded-full bg-primary text-primary-foreground text-[10px] px-1" aria-label={`${unread} não lidas`}>
+                  {unread}
+                </span>
+              )}
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="conversa" forceMount className="data-[state=inactive]:hidden mt-3">
+            <LeadConversation
+              leadId={localLead.id}
+              leadFirstName={localLead.nome?.split(' ')[0]}
+              active={open && tab === 'conversa'}
+              onUnreadChange={setUnread}
+            />
+          </TabsContent>
+
+          <TabsContent value="dados" className="mt-0">
         <div className="space-y-4 mt-4">
           {/* Contato */}
           <SectionTitle>Contato</SectionTitle>
@@ -665,6 +696,8 @@ export function LeadDetailPanel({ lead, open, onClose }: LeadDetailPanelProps) {
 
           <LeadActivities leadId={localLead.id} />
         </div>
+          </TabsContent>
+        </Tabs>
       </SheetContent>
     </Sheet>
   );
