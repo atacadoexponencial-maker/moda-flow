@@ -39,6 +39,9 @@ verify_jwt = false
 [functions.whatsapp-templates-sync]
 verify_jwt = false
 
+[functions.whatsapp-send]
+verify_jwt = false
+
 [functions.whatsapp-test-connection]
 verify_jwt = false
 
