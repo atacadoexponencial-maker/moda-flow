@@ -740,6 +740,42 @@ export type Database = {
           },
         ]
       }
+      whatsapp_templates: {
+        Row: {
+          category: string | null
+          components: Json
+          id: string
+          language: string
+          meta_id: string
+          name: string
+          rejected_reason: string | null
+          status: string
+          synced_at: string
+        }
+        Insert: {
+          category?: string | null
+          components?: Json
+          id?: string
+          language: string
+          meta_id: string
+          name: string
+          rejected_reason?: string | null
+          status: string
+          synced_at?: string
+        }
+        Update: {
+          category?: string | null
+          components?: Json
+          id?: string
+          language?: string
+          meta_id?: string
+          name?: string
+          rejected_reason?: string | null
+          status?: string
+          synced_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       meta_config_safe: {

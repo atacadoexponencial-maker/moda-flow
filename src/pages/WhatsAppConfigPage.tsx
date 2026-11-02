@@ -11,6 +11,7 @@ import { Label } from "@/components/ui/label";
 import { ArrowLeft, RefreshCw, Loader2, MessageCircle, LogOut, Replace } from "lucide-react";
 import { getErrorMessage } from "@/lib/utils";
 import { qualityLabel } from "../../supabase/functions/_shared/whatsapp-connection";
+import { TemplatesCard } from "@/components/whatsapp/TemplatesCard";
 import {
   useWhatsAppConfig,
   useConnectWhatsApp,
@@ -237,6 +238,8 @@ const WhatsAppConfigPage = () => {
           )}
         </CardContent>
       </Card>
+
+      {conectado && <TemplatesCard />}
 
       <Instructions />
     </div>
