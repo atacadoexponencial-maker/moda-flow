@@ -569,10 +569,12 @@ export type Database = {
           id: string
           oauth_state: string | null
           phone_number_id: string | null
+          quality_rating: string | null
           updated_at: string
           vault_secret_id: string | null
           verified_name: string | null
           waba_id: string | null
+          webhook_subscribed_at: string | null
         }
         Insert: {
           ativo?: boolean
@@ -581,10 +583,12 @@ export type Database = {
           id?: string
           oauth_state?: string | null
           phone_number_id?: string | null
+          quality_rating?: string | null
           updated_at?: string
           vault_secret_id?: string | null
           verified_name?: string | null
           waba_id?: string | null
+          webhook_subscribed_at?: string | null
         }
         Update: {
           ativo?: boolean
@@ -593,10 +597,12 @@ export type Database = {
           id?: string
           oauth_state?: string | null
           phone_number_id?: string | null
+          quality_rating?: string | null
           updated_at?: string
           vault_secret_id?: string | null
           verified_name?: string | null
           waba_id?: string | null
+          webhook_subscribed_at?: string | null
         }
         Relationships: []
       }
@@ -639,9 +645,12 @@ export type Database = {
           display_phone_number: string | null
           id: string | null
           phone_number_id: string | null
+          quality_rating: string | null
           token_configurado: boolean | null
+          updated_at: string | null
           verified_name: string | null
           waba_id: string | null
+          webhook_subscribed_at: string | null
         }
         Insert: {
           ativo?: boolean | null
@@ -649,9 +658,12 @@ export type Database = {
           display_phone_number?: string | null
           id?: string | null
           phone_number_id?: string | null
+          quality_rating?: string | null
           token_configurado?: never
+          updated_at?: string | null
           verified_name?: string | null
           waba_id?: string | null
+          webhook_subscribed_at?: string | null
         }
         Update: {
           ativo?: boolean | null
@@ -659,9 +671,12 @@ export type Database = {
           display_phone_number?: string | null
           id?: string | null
           phone_number_id?: string | null
+          quality_rating?: string | null
           token_configurado?: never
+          updated_at?: string | null
           verified_name?: string | null
           waba_id?: string | null
+          webhook_subscribed_at?: string | null
         }
         Relationships: []
       }

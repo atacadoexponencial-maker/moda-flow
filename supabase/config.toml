@@ -31,12 +31,9 @@ verify_jwt = false
 [functions.webhook-lead]
 verify_jwt = false
 
-# Funções autenticadas do WhatsApp: validam o Bearer token manualmente via
-# auth.getUser() dentro da função (mesmo padrão das funções meta-*).
-[functions.whatsapp-signup-start]
-verify_jwt = false
-
-[functions.whatsapp-signup-exchange]
+# Funções autenticadas do WhatsApp: validam o Bearer token e o papel
+# (proprietário/admin) dentro da função (supabase/functions/_shared/edge.ts).
+[functions.whatsapp-connect]
 verify_jwt = false
 
 [functions.whatsapp-test-connection]

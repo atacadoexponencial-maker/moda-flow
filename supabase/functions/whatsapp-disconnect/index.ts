@@ -1,82 +1,43 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
-};
+// Edge Function: whatsapp-disconnect (S2-01)
+// Apaga o token do Vault, marca a conexão como inativa e remove (melhor
+// esforço) a assinatura do app na WABA. Conversas e mensagens são mantidas.
+import { unsubscribeAppFromWaba } from "../_shared/whatsapp-graph.ts";
+import { corsHeaders, json, readWhatsAppToken, requireCrmRole } from "../_shared/edge.ts";
 
 Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
-  }
+  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const authHeader = req.headers.get("Authorization");
-    if (!authHeader?.startsWith("Bearer ")) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
+    const caller = await requireCrmRole(req);
+    if (caller instanceof Response) return caller;
+    const { admin } = caller;
 
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
-    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-
-    const userClient = createClient(supabaseUrl, supabaseAnonKey, {
-      global: { headers: { Authorization: authHeader } },
-    });
-    const { error: userError } = await userClient.auth.getUser();
-    if (userError) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    const adminClient = createClient(supabaseUrl, serviceRoleKey);
-
-    const { data: config } = await adminClient
+    const { data: config } = await admin
       .from("whatsapp_config")
-      .select("id, vault_secret_id")
+      .select("id, vault_secret_id, waba_id")
       .limit(1)
-      .single();
+      .maybeSingle();
+    if (!config) return json({ success: true });
 
-    if (!config) {
-      return new Response(JSON.stringify({ success: true }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+    const token = await readWhatsAppToken(admin, config.vault_secret_id);
+    if (token && config.waba_id) {
+      const r = await unsubscribeAppFromWaba(fetch, token, config.waba_id);
+      if ("error" in r) console.warn("whatsapp-disconnect: unsubscribe falhou:", r.error.message);
     }
 
     if (config.vault_secret_id) {
-      await adminClient.rpc("vault_delete_secret", {
-        secret_id: config.vault_secret_id,
-      });
+      await admin.rpc("vault_delete_secret", { secret_id: config.vault_secret_id });
     }
 
-    // Clear token and connection info
-    await adminClient
+    const { error } = await admin
       .from("whatsapp_config")
-      .update({
-        vault_secret_id: null,
-        waba_id: null,
-        phone_number_id: null,
-        display_phone_number: null,
-        verified_name: null,
-        oauth_state: null,
-        ativo: false,
-      })
+      .update({ vault_secret_id: null, ativo: false, webhook_subscribed_at: null, oauth_state: null })
       .eq("id", config.id);
+    if (error) throw error;
 
-    return new Response(JSON.stringify({ success: true }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return json({ success: true });
   } catch (err) {
-    console.error("Unexpected error:", err);
-    return new Response(JSON.stringify({ error: "Erro interno" }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    console.error("whatsapp-disconnect:", err);
+    return json({ success: false, error: "Erro interno" }, 500);
   }
 });
