@@ -1,127 +1,130 @@
-// Edge Function pública: whatsapp-webhook
-//
-// Fase 1 (esta issue): apenas o handshake do WhatsApp Cloud API.
-//   - GET  → verificação do webhook (hub.mode / hub.verify_token / hub.challenge).
-//   - POST → validação da assinatura X-Hub-Signature-256 sobre o corpo BRUTO.
-//            Quando a assinatura é válida, respondemos 200 SEM processar o conteúdo.
-//
-// Fase 2 (próxima issue): o processamento real das mensagens recebidas será
-// adicionado dentro do bloco do POST, depois da validação da assinatura.
-//
-// Docs Meta:
-//   https://developers.facebook.com/docs/graph-api/webhooks/getting-started
-//   https://developers.facebook.com/docs/whatsapp/cloud-api/guides/set-up-webhooks
+// Edge Function pública: whatsapp-webhook (S2-02)
+//  - GET: handshake de verificação da Meta (hub.verify_token).
+//  - POST: valida X-Hub-Signature-256 com o segredo do app do CRM interno
+//    (WHATSAPP_APP_SECRET), responde 200 imediatamente e processa em segundo
+//    plano: mensagens recebidas (lead conhecido ou novo, mídia) e status.
+// Eventos de outro número (ex.: o mesmo número assinado por outro app em
+// testes) são ignorados.
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.99.0";
+import { parseWebhook, verifySignature, type InboundMessage, type StatusUpdate } from "../_shared/whatsapp-inbound.ts";
+import { storeInboundMedia, MEDIA_BUCKET } from "../_shared/whatsapp-media.ts";
+import { metaErrorPt } from "../_shared/whatsapp-errors.ts";
+import { readWhatsAppToken } from "../_shared/edge.ts";
+
+declare const EdgeRuntime: { waitUntil(p: Promise<unknown>): void } | undefined;
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-hub-signature-256",
 };
 
-/** HMAC-SHA256 do corpo bruto com a chave fornecida, retornado em hex. */
-async function hmacSha256Hex(secret: string, payload: string): Promise<string> {
-  const encoder = new TextEncoder();
-  const key = await crypto.subtle.importKey(
-    "raw",
-    encoder.encode(secret),
-    { name: "HMAC", hash: "SHA-256" },
-    false,
-    ["sign"],
-  );
-  const signatureBuffer = await crypto.subtle.sign("HMAC", key, encoder.encode(payload));
-  return Array.from(new Uint8Array(signatureBuffer))
-    .map((b) => b.toString(16).padStart(2, "0"))
-    .join("");
+const text = (body: string, status = 200) =>
+  new Response(body, { status, headers: { ...corsHeaders, "Content-Type": "text/plain" } });
+const json = (body: unknown, status = 200) =>
+  new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+
+function admin() {
+  return createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
 }
 
-/** Comparação de tempo constante entre duas strings hex de mesmo comprimento. */
-function timingSafeEqual(a: string, b: string): boolean {
-  if (a.length !== b.length) return false;
-  let diff = 0;
-  for (let i = 0; i < a.length; i++) {
-    diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+async function handleMessage(db: ReturnType<typeof admin>, token: string | null, m: InboundMessage) {
+  const { data, error } = await db.rpc("whatsapp_ingest_message", {
+    p_phone_number_id: m.phone_number_id,
+    p_from: m.from,
+    p_profile_name: m.profile_name,
+    p_wamid: m.wamid,
+    p_type: m.type,
+    p_content: m.content,
+    p_media: m.media,
+    p_reply_to_wamid: m.reply_to_wamid,
+    p_ts: m.timestamp,
+    p_preview: m.preview,
+  });
+  if (error) {
+    console.error("whatsapp-webhook ingest:", error.message, m.wamid);
+    return;
   }
-  return diff === 0;
+  const r = data as { message_id: string | null; lead_id: string; created: boolean };
+  if (!r?.created || !m.media || !r.message_id) return;
+
+  if (!token) {
+    await db.from("whatsapp_messages").update({ media_status: "falhou" }).eq("id", r.message_id);
+    return;
+  }
+  const res = await storeInboundMedia({
+    fetch,
+    token,
+    mediaId: m.media.id,
+    leadId: r.lead_id,
+    wamid: m.wamid,
+    filename: m.media.filename,
+    upload: async (path, bytes, contentType) => {
+      const up = await db.storage.from(MEDIA_BUCKET).upload(path, bytes, { contentType, upsert: true });
+      if (up.error) throw new Error(up.error.message);
+    },
+  });
+  const patch =
+    res.status === "ok"
+      ? { media_status: "ok", media_path: res.path, media_mime: res.mime, media_size: res.size }
+      : res.status === "grande_demais"
+        ? { media_status: "grande_demais", media_size: res.size }
+        : { media_status: "falhou" };
+  if (res.status === "falhou") console.warn("whatsapp-webhook mídia:", res.error, m.wamid);
+  await db.from("whatsapp_messages").update(patch).eq("id", r.message_id);
+}
+
+async function handleStatus(db: ReturnType<typeof admin>, s: StatusUpdate) {
+  const err = s.status === "falhou" ? metaErrorPt(s.error_code, s.error_title) : null;
+  const { error } = await db.rpc("whatsapp_apply_status", { p_wamid: s.wamid, p_status: s.status, p_error: err });
+  if (error) console.error("whatsapp-webhook status:", error.message, s.wamid);
+}
+
+async function processPayload(payload: unknown) {
+  const db = admin();
+  const { data: config } = await db
+    .from("whatsapp_config")
+    .select("phone_number_id, ativo, vault_secret_id")
+    .limit(1)
+    .maybeSingle();
+  if (!config?.ativo || !config.phone_number_id) return;
+
+  const parsed = parseWebhook(payload, config.phone_number_id);
+  if (parsed.messages.length === 0 && parsed.statuses.length === 0) return;
+
+  const token = parsed.messages.some((m) => m.media) ? await readWhatsAppToken(db, config.vault_secret_id) : null;
+  for (const m of parsed.messages) await handleMessage(db, token, m);
+  for (const s of parsed.statuses) await handleStatus(db, s);
 }
 
 Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
-  }
+  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
-  // ---------------------------------------------------------------------------
-  // GET → Handshake de verificação do Meta.
-  // ---------------------------------------------------------------------------
   if (req.method === "GET") {
     const url = new URL(req.url);
-    const mode = url.searchParams.get("hub.mode");
-    const verifyToken = url.searchParams.get("hub.verify_token");
-    const challenge = url.searchParams.get("hub.challenge");
-
-    const expectedToken = Deno.env.get("WHATSAPP_WEBHOOK_VERIFY_TOKEN");
-
-    if (mode === "subscribe" && expectedToken && verifyToken === expectedToken) {
-      // Responder o desafio em TEXTO PURO (não JSON, sem aspas).
-      return new Response(challenge ?? "", {
-        status: 200,
-        headers: { ...corsHeaders, "Content-Type": "text/plain" },
-      });
+    const expected = Deno.env.get("WHATSAPP_WEBHOOK_VERIFY_TOKEN");
+    if (url.searchParams.get("hub.mode") === "subscribe" && expected && url.searchParams.get("hub.verify_token") === expected) {
+      return text(url.searchParams.get("hub.challenge") ?? "");
     }
-
-    return new Response("Forbidden", {
-      status: 403,
-      headers: { ...corsHeaders, "Content-Type": "text/plain" },
-    });
+    return text("Forbidden", 403);
   }
 
-  // ---------------------------------------------------------------------------
-  // POST → Entrega de eventos. Validar X-Hub-Signature-256 sobre o corpo BRUTO.
-  // ---------------------------------------------------------------------------
-  if (req.method === "POST") {
-    // O corpo precisa ser lido EXATAMENTE como recebido (sem reparse/reserialize),
-    // caso contrário a assinatura não confere.
-    const rawBody = await req.text();
+  if (req.method !== "POST") return json({ error: "Method not allowed" }, 405);
 
-    const signatureHeader = req.headers.get("x-hub-signature-256");
-    const appSecret = Deno.env.get("META_APP_SECRET");
+  // Corpo bruto: a assinatura é calculada sobre os bytes exatos recebidos.
+  const raw = await req.text();
+  const ok = await verifySignature(raw, req.headers.get("x-hub-signature-256"), Deno.env.get("WHATSAPP_APP_SECRET"));
+  if (!ok) return json({ error: "Invalid signature" }, 401);
 
-    if (!signatureHeader || !appSecret) {
-      return new Response(JSON.stringify({ error: "Missing signature or app secret" }), {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    // Header chega no formato "sha256=<hmac_hex>".
-    const receivedSignature = signatureHeader.startsWith("sha256=")
-      ? signatureHeader.slice("sha256=".length)
-      : signatureHeader;
-
-    const expectedSignature = await hmacSha256Hex(appSecret, rawBody);
-
-    if (!timingSafeEqual(receivedSignature, expectedSignature)) {
-      return new Response(JSON.stringify({ error: "Invalid signature" }), {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    // Assinatura válida.
-    // FASE 2: o processamento das mensagens (JSON.parse(rawBody) e roteamento dos
-    // eventos do WhatsApp) será adicionado AQUI. Nesta fase apenas confirmamos o
-    // recebimento com 200, sem efeitos colaterais (idempotente por natureza).
-    console.log("whatsapp-webhook: entrega válida recebida (não processada nesta fase)");
-
-    return new Response(JSON.stringify({ received: true }), {
-      status: 200,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+  let payload: unknown;
+  try {
+    payload = JSON.parse(raw);
+  } catch {
+    return json({ error: "Invalid JSON" }, 400);
   }
 
-  // ---------------------------------------------------------------------------
-  // Demais métodos não são suportados.
-  // ---------------------------------------------------------------------------
-  return new Response(JSON.stringify({ error: "Method not allowed" }), {
-    status: 405,
-    headers: { ...corsHeaders, "Content-Type": "application/json" },
-  });
+  const work = processPayload(payload).catch((e) => console.error("whatsapp-webhook:", e));
+  if (typeof EdgeRuntime !== "undefined") EdgeRuntime.waitUntil(work);
+  else await work;
+
+  return json({ received: true });
 });

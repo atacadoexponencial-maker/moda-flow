@@ -606,6 +606,140 @@ export type Database = {
         }
         Relationships: []
       }
+      whatsapp_conversations: {
+        Row: {
+          created_at: string
+          id: string
+          last_inbound_at: string | null
+          last_message_at: string | null
+          last_message_direction: string | null
+          last_message_text: string | null
+          lead_id: string
+          unread_count: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          last_inbound_at?: string | null
+          last_message_at?: string | null
+          last_message_direction?: string | null
+          last_message_text?: string | null
+          lead_id: string
+          unread_count?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          last_inbound_at?: string | null
+          last_message_at?: string | null
+          last_message_direction?: string | null
+          last_message_text?: string | null
+          lead_id?: string
+          unread_count?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_conversations_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: true
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      whatsapp_messages: {
+        Row: {
+          content: string | null
+          conversation_id: string
+          created_at: string
+          direction: string
+          id: string
+          lead_id: string
+          media_filename: string | null
+          media_meta_id: string | null
+          media_mime: string | null
+          media_path: string | null
+          media_size: number | null
+          media_status: string | null
+          phone_number_id: string | null
+          reaction_emoji: string | null
+          read_at: string | null
+          reply_to_wamid: string | null
+          sent_by: string | null
+          sent_by_email: string | null
+          status: string | null
+          status_error: string | null
+          type: string
+          wamid: string | null
+        }
+        Insert: {
+          content?: string | null
+          conversation_id: string
+          created_at?: string
+          direction: string
+          id?: string
+          lead_id: string
+          media_filename?: string | null
+          media_meta_id?: string | null
+          media_mime?: string | null
+          media_path?: string | null
+          media_size?: number | null
+          media_status?: string | null
+          phone_number_id?: string | null
+          reaction_emoji?: string | null
+          read_at?: string | null
+          reply_to_wamid?: string | null
+          sent_by?: string | null
+          sent_by_email?: string | null
+          status?: string | null
+          status_error?: string | null
+          type: string
+          wamid?: string | null
+        }
+        Update: {
+          content?: string | null
+          conversation_id?: string
+          created_at?: string
+          direction?: string
+          id?: string
+          lead_id?: string
+          media_filename?: string | null
+          media_meta_id?: string | null
+          media_mime?: string | null
+          media_path?: string | null
+          media_size?: number | null
+          media_status?: string | null
+          phone_number_id?: string | null
+          reaction_emoji?: string | null
+          read_at?: string | null
+          reply_to_wamid?: string | null
+          sent_by?: string | null
+          sent_by_email?: string | null
+          status?: string | null
+          status_error?: string | null
+          type?: string
+          wamid?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_messages_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "whatsapp_conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_messages_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       meta_config_safe: {
@@ -715,6 +849,26 @@ export type Database = {
         Args: { p_name: string; p_secret: string }
         Returns: string
       }
+      whatsapp_apply_status: {
+        Args: { p_error: string; p_status: string; p_wamid: string }
+        Returns: boolean
+      }
+      whatsapp_ingest_message: {
+        Args: {
+          p_content: string
+          p_from: string
+          p_media: Json
+          p_phone_number_id: string
+          p_preview: string
+          p_profile_name: string
+          p_reply_to_wamid: string
+          p_ts: string
+          p_type: string
+          p_wamid: string
+        }
+        Returns: Json
+      }
+      whatsapp_status_rank: { Args: { p_status: string }; Returns: number }
     }
     Enums: {
       [_ in never]: never
